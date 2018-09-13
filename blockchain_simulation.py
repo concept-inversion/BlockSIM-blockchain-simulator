@@ -1,9 +1,9 @@
 import random
 import simpy
 
-NO_NODES = 10
-MEAN_TRANS_GEN_TIME= 8
-SD_TRANS_GEN_TIME= 2 
+NO_NODES = 1
+MEAN_TRANS_GEN_TIME= 4
+SD_TRANS_GEN_TIME= 1 
 MINING_TIME= 2
 BLOCKSIZE= 5
 MEMPOOL_SIZE= 10
@@ -16,22 +16,25 @@ class nodes():
         self.mempool_size = 10
         self.block_list= []
         print("Node generated with node ID: %d " % self.nodeID)
-
+        
+        
+    def run(self):
+        yield env.timeout(5)
+        print("Running node id %d at time %d"% (self.nodeID,env.now))
     def add_task(self,txID):
         self.task_list.append(txID)
-        print("task number %d added to the node %d " %(txID,self.nodeID))
-        #self.env.process(self.mining())
+        #print("task number %d added to the node %d " %(txID,self.nodeID))
+        env.process(self.mining())
 
     def broadcast(self):
         pass
     
     def mining(self):
         # Starts mining/verification of the transactions and handles interrupt for updating the blocks
-        while True:
-            if len(self.task_list)!= 0:
-                task=self.task_list.pop()
-                print("Mining on task %d" %task)
-                yield env.timeout(4)
+        task=self.task_list.pop()
+        print("Miner started for task %d at node %d at time %d " % (task, self.nodeID,env.now))
+        yield env.timeout(13)
+        print("task %d done by node %d in time %d" %(task,self.nodeID,env.now))
         
 def node_generator(env):
     global nodeID
@@ -45,8 +48,8 @@ def trans_generator(env):
     txID = 2300
     while True:
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
-        print("Generating transactions at %d tick."% env.now)
         txID  += 1
+        print("Generating %d transactions at %d tick."% (txID,env.now))
         node = random.choice(nodeID)
         #import ipdb; ipdb.set_trace()
         for i in node_map:
@@ -59,7 +62,5 @@ env = simpy.Environment()
 node_generator(env)
 
 env.process(trans_generator(env))
-for each in node_map:
-        env.process(each.mining())
-env.run(until=140)
+env.run(until=50)
 
