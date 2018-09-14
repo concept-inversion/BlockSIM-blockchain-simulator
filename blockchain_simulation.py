@@ -1,8 +1,9 @@
 import random
 import simpy
+from simpy.
 
-NO_NODES = 1
-MEAN_TRANS_GEN_TIME= 4
+NO_NODES = 4
+MEAN_TRANS_GEN_TIME= 30
 SD_TRANS_GEN_TIME= 1 
 MINING_TIME= 2
 BLOCKSIZE= 5
@@ -15,6 +16,7 @@ class nodes():
         self.task_list = []
         self.mempool_size = 10
         self.block_list= []
+        self.res = simpy.Resource(env,capacity=1)
         print("Node generated with node ID: %d " % self.nodeID)
         
         
@@ -31,11 +33,18 @@ class nodes():
     
     def mining(self):
         # Starts mining/verification of the transactions and handles interrupt for updating the blocks
-        task=self.task_list.pop()
-        print("Miner started for task %d at node %d at time %d " % (task, self.nodeID,env.now))
-        yield env.timeout(13)
-        print("task %d done by node %d in time %d" %(task,self.nodeID,env.now))
-        
+            if len(self.task_list) != 0:
+                request = self.res.request()
+                yield request
+                task=self.task_list.pop()
+                print("Mining  | task %d | node %d | time %d " % (task, self.nodeID,env.now))
+                yield env.timeout(13)
+                self.block_list.append(task)
+                self.res.release(request)
+                print("Completed |  %d | node %d | time %d" %(task,self.nodeID,env.now))
+            else:
+                self.mining()
+
 def node_generator(env):
     global nodeID
     nodeID= random.sample(range(1000,1000+NO_NODES),NO_NODES)
@@ -49,7 +58,7 @@ def trans_generator(env):
     while True:
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
         txID  += 1
-        print("Generating %d transactions at %d tick."% (txID,env.now))
+        print("Generating |  %d  | time %d ."% (txID,env.now))
         node = random.choice(nodeID)
         #import ipdb; ipdb.set_trace()
         for i in node_map:
@@ -58,9 +67,10 @@ def trans_generator(env):
                 #print("Transaction %d appended to the node %d : "%(txID,i.nodeID))
         yield env.timeout(5)
 
-env = simpy.Environment()
-node_generator(env)
-
-env.process(trans_generator(env))
-env.run(until=50)
-
+if __name__== "__main__":
+    env = simpy.Environment()
+    node_generator(env)
+    env.process(trans_generator(env))
+    for node in node_map:
+        env.process(node.mining())
+    env.run(until=100)
