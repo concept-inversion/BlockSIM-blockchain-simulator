@@ -19,10 +19,10 @@ class nodes():
         self.res = simpy.Resource(env,capacity=1)
         print("Node generated with node ID: %d " % self.nodeID)
         
- 
     def run(self):
         yield env.timeout(5)
         print("Running node id %d at time %d"% (self.nodeID,env.now))
+    
     def add_task(self,txID):
         self.task_list.append(txID)
         #print("task number %d added to the node %d " %(txID,self.nodeID))
@@ -87,8 +87,7 @@ if __name__== "__main__":
     env = simpy.Environment()
     pipe = simpy.Store(env)
     bc_pipe = Broadcaster(env)
-    bc_pipe.put("lol")
-    node_generator(env,bc_pipe.pipes)
+    node_generator(env,bc_pipe.get_output_conn())
     env.process(trans_generator(env))
     # for node in node_map:
     #     env.process(node.mining(bc_pipe))
