@@ -17,6 +17,7 @@ class nodes():
         self.block_list= []
         self.bc_pipe = bc_pipe
         self.res = simpy.Resource(env,capacity=1)
+        #self.process = env.process(self.mining(self.bc_pipe))
         print("Node generated with node ID: %d " % self.nodeID)
         
     def run(self):
@@ -26,7 +27,7 @@ class nodes():
     def add_task(self,txID):
         self.task_list.append(txID)
         #print("task number %d added to the node %d " %(txID,self.nodeID))
-        env.process(self.mining(self.bc_pipe))
+        self.process=env.process(self.mining(self.bc_pipe))
     
     def mining(self,bc_pipe):
         # Starts mining/verification of the transactions and handles interrupt for updating the blocks
@@ -75,6 +76,9 @@ class Broadcaster():
         if not self.pipes:
             raise RuntimeError('There are no output pipes.')
         events = [store.put(value) for store in self.pipes]
+        for node in node_map:
+            node.process.interrupt()
+        
         return self.env.all_of(events)
 
     def get_output_conn(self):
