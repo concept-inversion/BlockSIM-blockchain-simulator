@@ -1,22 +1,27 @@
 import random
 import simpy
-
-NO_NODES = 3
+import logging
+import copy
+from tasks import task
+NO_NODES = 1
 MEAN_TRANS_GEN_TIME= 5
 SD_TRANS_GEN_TIME= 1 
 MINING_TIME= 2
 BLOCKSIZE= 5
-MEMPOOL_SIZE= 10
+txpool_SIZE= 10
 BLOCKTIME = 20
+logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
 
 class nodes():
     def __init__(self,nodeID,cable):
         self.nodeID= nodeID
         self.env= env
-        self.mempool= []
-        self.mempool_size = 10
+        self.txpool= []
+        self.pendingpool = []
+        self.block_gas_limit = 10000 
         self.block_list= []
         self.cable= cable
+        self.current_gas=0
         self.res= simpy.Resource(env,capacity=1)
         #self.process= None
         self.process = env.process(self.mining())
@@ -27,30 +32,49 @@ class nodes():
         print("Running node id %d at time %d"% (self.nodeID,env.now))
     
     def add_task(self,txID):
-        self.mempool.append(txID)
-        #print("task  %d | added | node %d " %(txID,self.nodeID))
-        #setattr(self,'process',env.process(self.mining()))
+        self.txpool.append(txID)
     
     def mining(self):
         '''
          Starts mining/verification of the transactions and handles interrupt for updating the blocks
+         1. Add task send interrupts to this process.
+         2. After INTR, it sums the gas size
+         3. Check if the gas size is out of limit
+         4. If out of limit, hold the last task,builds a block with tx in the pool, and broadcasts it.
         '''
         while True:
-            yield env.timeout(BLOCKTIME)   
-            if len(self.mempool) != 0:
-                try:
-                    print("Reading | Mempool | size %d | node %d | time %d."%(len(self.mempool),self.nodeID,env.now))
-                    request = self.res.request()
-                    yield request
-                    task=self.mempool.pop(0)
-                    print("Mining  | task %d | node %d | time %d " % (task, self.nodeID,env.now))
-                    yield env.timeout(13)
-                    self.cable.put(task,self.nodeID)
-                    self.block_list.append(task)
-                    self.res.release(request)
-                    print("Completed |  %d | node %d | time %d" %(task,self.nodeID,env.now))
-                except simpy.Interrupt:
+            yield env.timeout(1)   
+            try:
+                if len(self.txpool) != 0:
+                    for each_tx in self.txpool:
+                        self.current_gas += each_tx.gas
+                        if self.current_gas < self.block_gas_limit:
+                            self.pendingpool.append(self.txpool.pop(0))
+                            print("added task to the pending pool")
+                        
+                        else:
+                            print("Create a block")
+                            block = copy.deepcopy(self.pendingpool)
+                            self.block_list.append(block)
+                            self.cable.put(block,self.nodeID)
+                            self.current_gas=0
+                            self.pendingpool=[]
+            except simpy.Interrupt:
                     print("%d is interrupted" %self.nodeID)
+                # try:
+                #     print("Reading | txpool | size %d | node %d | time %d."%(len(self.txpool),self.nodeID,env.now))
+                #     request = self.res.request()
+                #     yield request
+                #     task=self.txpool.pop(0)
+                #     #import ipdb; ipdb.set_trace()
+                #     print("Mining  | task %d | node %d | time %d " % (task.id, self.nodeID,env.now))
+                #     yield env.timeout(13)
+                #     self.cable.put(task,self.nodeID)
+                #     self.block_list.append(task)
+                #     self.res.release(request)
+                #     print("Completed |  %d | node %d | time %d" %(task.id,self.nodeID,env.now))
+                # except simpy.Interrupt:
+                #     print("%d is interrupted" %self.nodeID)
 
 
 def node_generator(env,cable):
@@ -62,17 +86,21 @@ def node_generator(env,cable):
     print("%d nodes generated:"% NO_NODES)
 
 def trans_generator(env):
+    
     txID = 2300
     while True:
+        TX_SIZE = random.randint(2300,4000)
+        TX_GAS = random.randint(1000,2000)
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
         txID  += 1
         print("Generating |  %d  | time %d ."% (txID,env.now))
+        Task = task(TX_GAS,TX_SIZE,txID)
         # Choose a node randomly from the nodelist
         node = random.choice(nodeID)
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
             if i.nodeID==node:
-                i.add_task(txID)
+                i.add_task(Task)
                 #print("Transaction %d appended to the node %d : "%(txID,i.nodeID))
 
 class Network():
@@ -85,13 +113,13 @@ class Network():
         yield self.env.timeout(self.delay)
         
     def put(self, value, nodeID):
-        print("Node %d broadcasted value %d " %(nodeID,value))
+        print("Node %d broadcasted a block " %(nodeID))
         self.env.process(self.latency(value,nodeID))
 
 
 class Broadcaster():
     '''
-    Broadcaster Not used due to complexity in modelling the network latency
+    Broadcaster is not used due to complexity in modelling the network latency.
     '''
     def __init__(self, env,capacity=simpy.core.Infinity):
         self.env = env
