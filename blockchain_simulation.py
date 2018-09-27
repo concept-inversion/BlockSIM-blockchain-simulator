@@ -3,7 +3,7 @@ import simpy
 import logging
 import copy
 from tasks import task
-NO_NODES = 1
+NO_NODES = 4
 MEAN_TRANS_GEN_TIME= 5
 SD_TRANS_GEN_TIME= 1 
 MINING_TIME= 2
@@ -13,6 +13,7 @@ BLOCKTIME = 20
 logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
 
 class nodes():
+    
     def __init__(self,nodeID,cable):
         self.nodeID= nodeID
         self.env= env
@@ -23,44 +24,70 @@ class nodes():
         self.cable= cable
         self.current_gas=0
         self.res= simpy.Resource(env,capacity=1)
-        #self.process= None
-        self.process = env.process(self.mining())
+        self.mine_process = env.process(self.mining())
         print("Node generated with node ID: %d " % self.nodeID)
+    
+    def add_task(self,tx):
+        self.broadcaster(None,tx,0)
+        self.txpool.append(tx)
         
-    def run(self):
-        yield env.timeout(5)
-        print("Running node id %d at time %d"% (self.nodeID,env.now))
     
-    def add_task(self,txID):
-        self.txpool.append(txID)
-    
+    '''
+     type= 0 :transactions
+     type= 1 :blocks
+    '''
+
+    def receiver(self,data,type):
+        #If transaction, add it to the pool; Later on verify if the tx already happened
+        if type==0:
+            #verify here
+            self.txpool.append(data)
+        elif type==1:
+            self.intr_data= data
+            self.mine_process.interrupt()
+        pass
+
+    def broadcaster(self,nodeID,data,type):
+        # Broadcast to neighbour node. For now, broadcast to all.
+        print("%d broadcasting data to other nodes"%self.nodeID)
+        for each in node_map:
+            if each.nodeID != self.nodeID:
+                each.receiver(data,type) 
+        pass
+
     def mining(self):
         '''
-         Starts mining/verification of the transactions and handles interrupt for updating the blocks
+         Starts mining/verification of the transactions and handles interrupt for updating the blocks.
          1. Add task send interrupts to this process.
-         2. After INTR, it sums the gas size
-         3. Check if the gas size is out of limit
+         2. After INTR, it sums the gas size.
+         3. Check if the gas size is out of limit.
          4. If out of limit, hold the last task,builds a block with tx in the pool, and broadcasts it.
+         
         '''
+    
         while True:
-            yield env.timeout(1)   
             try:
+                yield env.timeout(1)   
                 if len(self.txpool) != 0:
                     for each_tx in self.txpool:
                         self.current_gas += each_tx.gas
                         if self.current_gas < self.block_gas_limit:
                             self.pendingpool.append(self.txpool.pop(0))
-                            print("added task to the pending pool")
+                            #print("added task to the pending pool")
                         
                         else:
-                            print("Create a block")
+                            print("%d Create a block" %self.nodeID)
                             block = copy.deepcopy(self.pendingpool)
                             self.block_list.append(block)
-                            self.cable.put(block,self.nodeID)
+                            self.broadcaster(block,self.nodeID,1)
                             self.current_gas=0
                             self.pendingpool=[]
             except simpy.Interrupt:
-                    print("%d is interrupted" %self.nodeID)
+                print("%d is interrupted " %self.nodeID)
+                self.block_list.append(self.intr_data)
+                self.pendingpool=[]
+                self.intr_data=None
+
                 # try:
                 #     print("Reading | txpool | size %d | node %d | time %d."%(len(self.txpool),self.nodeID,env.now))
                 #     request = self.res.request()
@@ -116,8 +143,7 @@ class Network():
         print("Node %d broadcasted a block " %(nodeID))
         self.env.process(self.latency(value,nodeID))
 
-
-class Broadcaster():
+class Broadcast():
     '''
     Broadcaster is not used due to complexity in modelling the network latency.
     '''
@@ -141,10 +167,9 @@ class Broadcaster():
         self.pipes.append(pipe)
         return pipe
     
-
 if __name__== "__main__":
     env = simpy.Environment()
     cable = Network(env)
     node_generator(env,cable)
     env.process(trans_generator(env))
-    env.run(until=50)
+    env.run(until=150)
