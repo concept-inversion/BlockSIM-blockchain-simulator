@@ -11,6 +11,7 @@ BLOCKSIZE= 5
 txpool_SIZE= 10
 BLOCKTIME = 20
 logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
+logger = logging.getLogger()
 
 class nodes():
     
@@ -26,11 +27,12 @@ class nodes():
         self.res= simpy.Resource(env,capacity=1)
         self.mine_process = env.process(self.mining())
         print("Node generated with node ID: %d " % self.nodeID)
+        logger.debug('%d , generated, %d'%(self.nodeID,env.now))
     
     def add_task(self,tx):
         self.broadcaster(None,tx,0)
         self.txpool.append(tx)
-        
+        logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
     
     '''
      type= 0 :transactions
@@ -41,6 +43,8 @@ class nodes():
         #If transaction, add it to the pool; Later on verify if the tx already happened
         if type==0:
             #verify here
+            print("hash of tx is")
+            print(hash(data))
             self.txpool.append(data)
         elif type==1:
             self.intr_data= data
@@ -50,6 +54,7 @@ class nodes():
     def broadcaster(self,nodeID,data,type):
         # Broadcast to neighbour node. For now, broadcast to all.
         print("%d broadcasting data to other nodes"%self.nodeID)
+        logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         for each in node_map:
             if each.nodeID != self.nodeID:
                 each.receiver(data,type) 
@@ -77,13 +82,16 @@ class nodes():
                         
                         else:
                             print("%d Create a block" %self.nodeID)
+                            logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
                             block = copy.deepcopy(self.pendingpool)
+                            
                             self.block_list.append(block)
                             self.broadcaster(block,self.nodeID,1)
                             self.current_gas=0
                             self.pendingpool=[]
             except simpy.Interrupt:
                 print("%d is interrupted " %self.nodeID)
+                logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
                 self.block_list.append(self.intr_data)
                 self.pendingpool=[]
                 self.intr_data=None
