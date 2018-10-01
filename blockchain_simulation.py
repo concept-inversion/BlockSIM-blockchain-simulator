@@ -1,9 +1,10 @@
 import random
+import time
 import simpy
 import logging
 import copy
 from tasks import task
-NO_NODES = 4
+NO_NODES = 2
 MEAN_TRANS_GEN_TIME= 5
 SD_TRANS_GEN_TIME= 1 
 MINING_TIME= 2
@@ -12,7 +13,8 @@ txpool_SIZE= 10
 BLOCKTIME = 20
 logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
 logger = logging.getLogger()
-
+curr = time.ctime()
+logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 class nodes():
     
     def __init__(self,nodeID,cable):
@@ -20,7 +22,7 @@ class nodes():
         self.env= env
         self.txpool= []
         self.pendingpool = []
-        self.block_gas_limit = 10000 
+        self.block_gas_limit = 5000 
         self.block_list= []
         self.cable= cable
         self.current_gas=0
@@ -30,7 +32,7 @@ class nodes():
         logger.debug('%d , generated, %d'%(self.nodeID,env.now))
     
     def add_task(self,tx):
-        self.broadcaster(None,tx,0)
+        self.broadcaster(tx,None,0)
         self.txpool.append(tx)
         logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
     
@@ -40,18 +42,18 @@ class nodes():
     '''
 
     def receiver(self,data,type):
-        #If transaction, add it to the pool; Later on verify if the tx already happened
+        #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
         if type==0:
             #verify here
-            print("hash of tx is")
-            print(hash(data))
+            #print("hash of tx is")
+            #print(hash(data))
             self.txpool.append(data)
         elif type==1:
             self.intr_data= data
             self.mine_process.interrupt()
         pass
 
-    def broadcaster(self,nodeID,data,type):
+    def broadcaster(self,data,nodeID,type):
         # Broadcast to neighbour node. For now, broadcast to all.
         print("%d broadcasting data to other nodes"%self.nodeID)
         logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
@@ -84,17 +86,21 @@ class nodes():
                             print("%d Create a block" %self.nodeID)
                             logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
                             block = copy.deepcopy(self.pendingpool)
-                            
-                            self.block_list.append(block)
+                            print("The created block is: ")
+                            print(block)
+                            self.block_list.insert(0,block)
+                            print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                             self.broadcaster(block,self.nodeID,1)
                             self.current_gas=0
                             self.pendingpool=[]
             except simpy.Interrupt:
                 print("%d is interrupted " %self.nodeID)
                 logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
-                self.block_list.append(self.intr_data)
+                self.block_list.insert(0,self.intr_data)
+                print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                 self.pendingpool=[]
                 self.intr_data=None
+                self.current_gas=0
 
                 # try:
                 #     print("Reading | txpool | size %d | node %d | time %d."%(len(self.txpool),self.nodeID,env.now))
@@ -180,4 +186,9 @@ if __name__== "__main__":
     cable = Network(env)
     node_generator(env,cable)
     env.process(trans_generator(env))
-    env.run(until=150)
+    env.run(until=50)
+    print("Simulation ended")
+    for each in node_map:
+        print("Blocks in node %d " %each.nodeID)
+        for one in each.block_list:
+            print(one)
