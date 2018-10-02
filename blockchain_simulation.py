@@ -62,6 +62,10 @@ class nodes():
         logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         for each in node_map:
             if each.nodeID != self.nodeID:
+                '''
+                # insert delay using nodemap
+                latency = df.loc[self.nodeID,each.nodeID]
+                '''
                 each.receiver(data,type) 
         pass
 
