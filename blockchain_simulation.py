@@ -4,9 +4,11 @@ import simpy
 import logging
 import copy
 from tasks import task
+from blocks import Block
+
 NO_NODES = 2
-MEAN_TRANS_GEN_TIME= 5
-SD_TRANS_GEN_TIME= 1 
+MEAN_TRANS_GEN_TIME= 3
+SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
 BLOCKSIZE= 5
 txpool_SIZE= 10
@@ -15,6 +17,7 @@ logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
 logger = logging.getLogger()
 curr = time.ctime()
 logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
+BLOCKID= 99900
 class nodes():
     
     def __init__(self,nodeID,cable):
@@ -26,6 +29,7 @@ class nodes():
         self.block_list= []
         self.cable= cable
         self.current_gas=0
+        self.current_size=0
         self.res= simpy.Resource(env,capacity=1)
         self.mine_process = env.process(self.mining())
         print("Node generated with node ID: %d " % self.nodeID)
@@ -50,6 +54,7 @@ class nodes():
             self.txpool.append(data)
         elif type==1:
             self.intr_data= data
+            
             self.mine_process.interrupt()
         pass
 
@@ -78,6 +83,7 @@ class nodes():
                 if len(self.txpool) != 0:
                     for each_tx in self.txpool:
                         self.current_gas += each_tx.gas
+                        self.current_size = each_tx.size
                         if self.current_gas < self.block_gas_limit:
                             self.pendingpool.append(self.txpool.pop(0))
                             #print("added task to the pending pool")
@@ -85,13 +91,16 @@ class nodes():
                         else:
                             print("%d Create a block" %self.nodeID)
                             logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
-                            block = copy.deepcopy(self.pendingpool)
+                            global BLOCKID
+                            BLOCKID+= 1
+                            block = Block(self.current_size,BLOCKID,self.pendingpool,self.nodeID) 
                             print("The created block is: ")
                             print(block)
                             self.block_list.insert(0,block)
                             print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                             self.broadcaster(block,self.nodeID,1)
                             self.current_gas=0
+                            self.current_size=0
                             self.pendingpool=[]
             except simpy.Interrupt:
                 print("%d is interrupted " %self.nodeID)
@@ -184,4 +193,4 @@ if __name__== "__main__":
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
         for one in each.block_list:
-            print(one)
+            one.view_blocks()
