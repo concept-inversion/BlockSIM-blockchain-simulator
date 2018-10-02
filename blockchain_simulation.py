@@ -3,6 +3,8 @@ import time
 import simpy
 import logging
 import copy
+import numpy as np
+import pandas as pd
 from tasks import task
 from blocks import Block
 
@@ -48,13 +50,9 @@ class nodes():
     def receiver(self,data,type):
         #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
         if type==0:
-            #verify here
-            #print("hash of tx is")
-            #print(hash(data))
             self.txpool.append(data)
         elif type==1:
             self.intr_data= data
-            
             self.mine_process.interrupt()
         pass
 
@@ -93,6 +91,7 @@ class nodes():
                             logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
                             global BLOCKID
                             BLOCKID+= 1
+                            # could this pass for pending pool be pass by refere3nce ? 
                             block = Block(self.current_size,BLOCKID,self.pendingpool,self.nodeID) 
                             print("The created block is: ")
                             print(block)
@@ -105,6 +104,14 @@ class nodes():
             except simpy.Interrupt:
                 print("%d is interrupted " %self.nodeID)
                 logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
+                # use this for verification
+                '''
+                #verify here
+                #print("hash of tx is")
+                check=self.intr_data.validator(self.pendingpool)
+                if check == True:
+                    print("block match")
+                '''
                 self.block_list.insert(0,self.intr_data)
                 print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                 self.pendingpool=[]
@@ -126,9 +133,16 @@ def node_generator(env,cable):
     node_map = [nodes(each,cable) for each in nodeID]
     #import ipdb; ipdb.set_trace()
     print("%d nodes generated:"% NO_NODES)
+    network_creator()
 
+def network_creator():
+    dimension= len(nodeID)
+    x=np.random.randint(5, size=(dimension, dimension))
+    global node_network
+    node_network= pd.DataFrame(x,columns=nodeID,index=nodeID)
+    print(node_network)
+       
 def trans_generator(env):
-    
     txID = 2300
     while True:
         TX_SIZE = random.randint(2300,4000)
