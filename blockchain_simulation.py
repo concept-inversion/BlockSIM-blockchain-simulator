@@ -102,20 +102,12 @@ class nodes():
                 self.intr_data=None
                 self.current_gas=0
 
-                # try:
-                #     print("Reading | txpool | size %d | node %d | time %d."%(len(self.txpool),self.nodeID,env.now))
                 #     request = self.res.request()
                 #     yield request
-                #     task=self.txpool.pop(0)
-                #     #import ipdb; ipdb.set_trace()
-                #     print("Mining  | task %d | node %d | time %d " % (task.id, self.nodeID,env.now))
-                #     yield env.timeout(13)
                 #     self.cable.put(task,self.nodeID)
                 #     self.block_list.append(task)
                 #     self.res.release(request)
-                #     print("Completed |  %d | node %d | time %d" %(task.id,self.nodeID,env.now))
-                # except simpy.Interrupt:
-                #     print("%d is interrupted" %self.nodeID)
+               
 
 
 def node_generator(env,cable):
@@ -135,6 +127,7 @@ def trans_generator(env):
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
         txID  += 1
         print("Generating |  %d  | time %d ."% (txID,env.now))
+        logger.debug("Generating |  %d  | time %d ."% (txID,env.now))
         Task = task(TX_GAS,TX_SIZE,txID)
         # Choose a node randomly from the nodelist
         node = random.choice(nodeID)
@@ -142,7 +135,7 @@ def trans_generator(env):
         for i in node_map:
             if i.nodeID==node:
                 i.add_task(Task)
-                #print("Transaction %d appended to the node %d : "%(txID,i.nodeID))
+                print("Transaction %d appended to the node %d : "%(txID,i.nodeID))
 
 class Network():
     def __init__(self, env):
