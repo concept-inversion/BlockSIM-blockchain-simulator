@@ -9,16 +9,16 @@ from tasks import task
 from blocks import Block
 
 NO_NODES = 2
-MEAN_TRANS_GEN_TIME= 3
+MEAN_TRANS_GEN_TIME= 2
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
 BLOCKSIZE= 5
 txpool_SIZE= 10
 BLOCKTIME = 20
-logging.basicConfig(filename='logs/blockchain.log',level=logging.DEBUG)
+logging.basicConfig(filename='logs/blockchain.csv',level=logging.DEBUG)
 logger = logging.getLogger()
 curr = time.ctime()
-logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
+#logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
 class nodes():
     
@@ -35,12 +35,12 @@ class nodes():
         self.res= simpy.Resource(env,capacity=1)
         self.mine_process = env.process(self.mining())
         print("Node generated with node ID: %d " % self.nodeID)
-        logger.debug('%d , generated, %d'%(self.nodeID,env.now))
+        #logger.debug('%d , generated, %d'%(self.nodeID,env.now))
     
     def add_task(self,tx):
         self.broadcaster(tx,None,0)
         self.txpool.append(tx)
-        logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
+        #logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
     
     '''
      type= 0 :transactions
@@ -59,7 +59,7 @@ class nodes():
     def broadcaster(self,data,nodeID,type):
         # Broadcast to neighbour node. For now, broadcast to all.
         print("%d broadcasting data to other nodes"%self.nodeID)
-        logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
+        #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         def propagation(delay,each,data,type): 
             yield self.env.timeout(latency)
             each.receiver(data,type)
@@ -95,7 +95,7 @@ class nodes():
                         
                         else:
                             print("%d Create a block" %self.nodeID)
-                            logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
+                            #logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
                             global BLOCKID
                             BLOCKID+= 1
                             # could this pass for pending pool be pass by refere3nce ? 
@@ -110,7 +110,7 @@ class nodes():
                             self.pendingpool=[]
             except simpy.Interrupt:
                 print("%d is interrupted " %self.nodeID)
-                logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
+                #logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
                 # use this for verification
                 '''
                 #verify here
@@ -151,6 +151,7 @@ def network_creator():
     print(node_network)
        
 def trans_generator(env):
+    global txID
     txID = 2300
     while True:
         TX_SIZE = random.randint(2300,4000)
@@ -158,7 +159,7 @@ def trans_generator(env):
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
         txID  += 1
         print("Generating |  %d  | time %d ."% (txID,env.now))
-        logger.debug("Generating |  %d  | time %d ."% (txID,env.now))
+        #logger.debug("Generating |  %d  | time %d ."% (txID,env.now))
         Task = task(TX_GAS,TX_SIZE,txID)
         # Choose a node randomly from the nodelist
         node = random.choice(nodeID)
@@ -180,6 +181,23 @@ class Network():
     def put(self, value, nodeID):
         print("Node %d broadcasted a block " %(nodeID))
         self.env.process(self.latency(value,nodeID))
+
+def monitor(env):
+    prev_tx = 2300
+    prev_block = 99900
+    while True:
+        yield env.timeout(5)
+        print("at step %d "%env.now)
+        #Read size of the transaction pool
+        avg_tx= txID-prev_tx
+        prev_tx=txID
+        #logger.info(",%d,%d"%(env.now,avg_tx))
+        #Transaction per second(Throughput)
+        #Avg Block created
+        avg_block= BLOCKID-prev_block
+        prev_block=BLOCKID
+        logger.info(",%d,%d"%(env.now,avg_block))
+        #State of the netowork 
 
 class Broadcast():
     '''
@@ -206,13 +224,13 @@ class Broadcast():
         return pipe
     
 if __name__== "__main__":
-    
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
     cable = Network(env)
     node_generator(env,cable)
     env.process(trans_generator(env))
-    env.run(until=40)
+    env.process(monitor(env))
+    env.run(until=100)
     print("Simulation ended")
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
