@@ -8,7 +8,7 @@ import pandas as pd
 from tasks import task
 from blocks import Block
 
-NO_NODES = 2
+NO_NODES = 10
 MEAN_TRANS_GEN_TIME= 2
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
@@ -49,6 +49,7 @@ class nodes():
 
     def receiver(self,data,type):
         #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
+        print("%d received data at %d"%(self.nodeID,self.env.now))
         if type==0:
             self.txpool.append(data)
         elif type==1:
@@ -121,7 +122,7 @@ class nodes():
                 '''
                 self.block_list.insert(0,self.intr_data)
                 print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                self.pendingpool=[]
+                self.txpool=[]
                 self.intr_data=None
                 self.current_gas=0
 
@@ -145,7 +146,7 @@ def node_generator(env,cable):
 def network_creator():
     dimension= len(nodeID)
     np.random.seed(7)
-    x=np.random.randint(5, size=(dimension, dimension))
+    x=np.random.randint(20, size=(dimension, dimension))
     global node_network
     node_network= pd.DataFrame(x,columns=nodeID,index=nodeID)
     print(node_network)
@@ -185,19 +186,38 @@ class Network():
 def monitor(env):
     prev_tx = 2300
     prev_block = 99900
+    avg_pending_tx= 0
     while True:
-        yield env.timeout(5)
+        yield env.timeout(10)
         print("at step %d "%env.now)
-        #Read size of the transaction pool
+
+        #Transaction per second(Throughput)
         avg_tx= txID-prev_tx
         prev_tx=txID
         #logger.info(",%d,%d"%(env.now,avg_tx))
-        #Transaction per second(Throughput)
+
         #Avg Block created
         avg_block= BLOCKID-prev_block
         prev_block=BLOCKID
-        logger.info(",%d,%d"%(env.now,avg_block))
+        #logger.info(",%d,%d"%(env.now,avg_block))
+        
         #State of the netowork 
+        for each in node_map:
+            avg_pending_tx+= len(each.pendingpool)
+        average= avg_pending_tx/len(node_map)
+        #logger.info(",%d,%d"%(env.now,average))
+        avg_pending_tx=0
+
+        # Eventual Consistency
+        hash_list = set()
+        len_list = set()
+        for each in node_map:
+            len_list.add(len(each.block_list))
+            for block in each.block_list:
+                hash_list.add(block.hash)
+                
+        logger.info(",%d,%d"%(env.now,len(len_list)))
+        
 
 class Broadcast():
     '''
@@ -230,9 +250,9 @@ if __name__== "__main__":
     node_generator(env,cable)
     env.process(trans_generator(env))
     env.process(monitor(env))
-    env.run(until=100)
+    env.run(until=200)
     print("Simulation ended")
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
-        for one in each.block_list:
-            one.view_blocks()
+        #for one in each.block_list:
+            #one.view_blocks()
