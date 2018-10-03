@@ -60,13 +60,16 @@ class nodes():
         # Broadcast to neighbour node. For now, broadcast to all.
         print("%d broadcasting data to other nodes"%self.nodeID)
         logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
+        def propagation(delay,each,data,type): 
+            yield self.env.timeout(latency)
+            each.receiver(data,type)
+
         for each in node_map:
-            if each.nodeID != self.nodeID:
-                '''
-                # insert delay using nodemap
-                latency = df.loc[self.nodeID,each.nodeID]
-                '''
-                each.receiver(data,type) 
+            if each.nodeID != self.nodeID:                
+                #insert delay using nodemap
+                latency = node_network.loc[self.nodeID,each.nodeID]
+                self.env.process(propagation(latency,each,data,type))
+                 
         pass
 
     def mining(self):
@@ -141,6 +144,7 @@ def node_generator(env,cable):
 
 def network_creator():
     dimension= len(nodeID)
+    np.random.seed(7)
     x=np.random.randint(5, size=(dimension, dimension))
     global node_network
     node_network= pd.DataFrame(x,columns=nodeID,index=nodeID)
@@ -202,11 +206,13 @@ class Broadcast():
         return pipe
     
 if __name__== "__main__":
-    env = simpy.Environment()
+    
+    #env = simpy.rt.RealtimeEnvironment(factor=0.5)
+    env=simpy.Environment()
     cable = Network(env)
     node_generator(env,cable)
     env.process(trans_generator(env))
-    env.run(until=50)
+    env.run(until=40)
     print("Simulation ended")
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
