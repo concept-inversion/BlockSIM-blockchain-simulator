@@ -19,8 +19,9 @@ class Block():
         https://stackoverflow.com/questions/20416468/fastest-way-to-get-a-hash-from-a-list-in-python
         '''
         # list comprehension for generating hash
-        r = [(each.id) for each in tasks ]
-        p = ','.join(map(str, r)).encode('utf-8')
+        re = [(each.id) for each in tasks ]
+        re.sort()
+        p = ','.join(map(str, re)).encode('utf-8')
         self.hash=hashlib.md5(p).hexdigest()
          
         pass
@@ -34,7 +35,7 @@ class Block():
         else:
             return False
     
-    def view_blocks(self):
+    def view_blocks(self):  
         print(self.id)
         print(self.transactions)
         
