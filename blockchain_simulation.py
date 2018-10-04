@@ -8,8 +8,8 @@ import pandas as pd
 from tasks import task
 from blocks import Block
 
-NO_NODES = 10
-MEAN_TRANS_GEN_TIME= 2
+NO_NODES = 2
+MEAN_TRANS_GEN_TIME= 4
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
 BLOCKSIZE= 5
@@ -18,28 +18,34 @@ BLOCKTIME = 20
 logging.basicConfig(filename='logs/blockchain.csv',level=logging.DEBUG)
 logger = logging.getLogger()
 curr = time.ctime()
+MESSAGE_COUNT=0
 #logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
+
+
 class nodes():
     
-    def __init__(self,nodeID,cable):
+    def __init__(self,nodeID):
         self.nodeID= nodeID
         self.env= env
         self.txpool= []
         self.pendingpool = []
         self.block_gas_limit = 5000 
         self.block_list= []
-        self.cable= cable
         self.current_gas=0
         self.current_size=0
+        self.known_blocks=[]
+        self.known_tx=[]
         self.res= simpy.Resource(env,capacity=1)
         self.mine_process = env.process(self.mining())
         print("Node generated with node ID: %d " % self.nodeID)
         #logger.debug('%d , generated, %d'%(self.nodeID,env.now))
     
     def add_task(self,tx):
+        
         self.broadcaster(tx,None,0)
         self.txpool.append(tx)
+        self.known_tx.append(tx.id)
         #logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
     
     '''
@@ -49,15 +55,23 @@ class nodes():
 
     def receiver(self,data,type):
         #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
-        print("%d received data at %d"%(self.nodeID,self.env.now))
-        if type==0:
+        global MESSAGE_COUNT
+        MESSAGE_COUNT -=1
+        if type==0 and (data.id not in self.known_tx):
             self.txpool.append(data)
-        elif type==1:
+            self.known_tx.append(data.id)
+            self.broadcaster(data,self.NodeID,0)
+            print("%d received transaction %d at %d"%(self.nodeID,data.id,self.env.now))
+        elif type==1 and (data.id not in self.known_blocks):
             self.intr_data= data
-            self.mine_process.interrupt()
+            self.known_blocks.append(data.id)
+            self.broadcaster(data,self.NodeID,1)
+            print("%d received block %d at %d"%(self.nodeID,data.id,self.env.now))
+            #self.mine_process.interrupt()
         pass
 
     def broadcaster(self,data,nodeID,type):
+        global MESSAGE_COUNT
         # Broadcast to neighbour node. For now, broadcast to all.
         print("%d broadcasting data to other nodes"%self.nodeID)
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
@@ -69,7 +83,9 @@ class nodes():
             if each.nodeID != self.nodeID:                
                 #insert delay using nodemap
                 latency = node_network.loc[self.nodeID,each.nodeID]
+                MESSAGE_COUNT +=1
                 self.env.process(propagation(latency,each,data,type))
+
                  
         pass
 
@@ -134,11 +150,11 @@ class nodes():
                
 
 
-def node_generator(env,cable):
+def node_generator(env):
     global nodeID
     nodeID= random.sample(range(1000,1000+NO_NODES),NO_NODES)
     global node_map
-    node_map = [nodes(each,cable) for each in nodeID]
+    node_map = [nodes(each) for each in nodeID]
     #import ipdb; ipdb.set_trace()
     print("%d nodes generated:"% NO_NODES)
     network_creator()
@@ -146,9 +162,11 @@ def node_generator(env,cable):
 def network_creator():
     dimension= len(nodeID)
     np.random.seed(7)
-    x=np.random.randint(20, size=(dimension, dimension))
+    x=np.random.randint(10, size=(dimension, dimension))
     global node_network
     node_network= pd.DataFrame(x,columns=nodeID,index=nodeID)
+    #call the network model with (x,nodeID)
+
     print(node_network)
        
 def trans_generator(env):
@@ -167,28 +185,16 @@ def trans_generator(env):
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
             if i.nodeID==node:
+                print("Transaction %d appended to the node %d "%(txID,i.nodeID))
                 i.add_task(Task)
-                print("Transaction %d appended to the node %d : "%(txID,i.nodeID))
-
-class Network():
-    def __init__(self, env):
-        self.env = env
-        self.delay = 5
-        self.store = simpy.Store(env)
-
-    def latency(self, value, nodeID): 
-        yield self.env.timeout(self.delay)
-        
-    def put(self, value, nodeID):
-        print("Node %d broadcasted a block " %(nodeID))
-        self.env.process(self.latency(value,nodeID))
-
+             
 def monitor(env):
     prev_tx = 2300
     prev_block = 99900
     avg_pending_tx= 0
     while True:
-        yield env.timeout(10)
+        print("Current MEssages in the system: %d "%MESSAGE_COUNT)
+        yield env.timeout(2)
         print("at step %d "%env.now)
 
         #Transaction per second(Throughput)
@@ -219,38 +225,14 @@ def monitor(env):
         logger.info(",%d,%d"%(env.now,len(len_list)))
         
 
-class Broadcast():
-    '''
-    Broadcaster is not used due to complexity in modelling the network latency.
-    '''
-    def __init__(self, env,capacity=simpy.core.Infinity):
-        self.env = env
-        self.capacity = capacity
-        self.pipes = []
-        
-    def put(self, value):
-        import ipdb; ipdb.set_trace()
-        if not self.pipes:
-            raise RuntimeError('There are no output pipes.')
-        events = [store.put(value) for store in self.pipes]
-        for node in node_map:
-            node.process.interrupt()
-        
-        return self.env.all_of(events)
-
-    def get_output_conn(self):
-        pipe = simpy.Store(self.env, capacity=self.capacity)
-        self.pipes.append(pipe)
-        return pipe
     
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
-    cable = Network(env)
-    node_generator(env,cable)
+    node_generator(env)
     env.process(trans_generator(env))
     env.process(monitor(env))
-    env.run(until=200)
+    env.run(until=10)
     print("Simulation ended")
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
