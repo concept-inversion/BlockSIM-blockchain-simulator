@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 from tasks import task
 from blocks import Block
+from network_state_graph import network_creator
 
-NO_NODES = 2
+NO_NODES = 5
 MEAN_TRANS_GEN_TIME= 4
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
@@ -19,6 +20,7 @@ logging.basicConfig(filename='logs/blockchain.csv',level=logging.DEBUG)
 logger = logging.getLogger()
 curr = time.ctime()
 MESSAGE_COUNT=0
+max_latency=10
 #logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
 
@@ -60,12 +62,12 @@ class nodes():
         if type==0 and (data.id not in self.known_tx):
             self.txpool.append(data)
             self.known_tx.append(data.id)
-            self.broadcaster(data,self.NodeID,0)
+            self.broadcaster(data,self.nodeID,0)
             print("%d received transaction %d at %d"%(self.nodeID,data.id,self.env.now))
         elif type==1 and (data.id not in self.known_blocks):
             self.intr_data= data
             self.known_blocks.append(data.id)
-            self.broadcaster(data,self.NodeID,1)
+            self.broadcaster(data,self.nodeID,1)
             print("%d received block %d at %d"%(self.nodeID,data.id,self.env.now))
             #self.mine_process.interrupt()
         pass
@@ -157,17 +159,10 @@ def node_generator(env):
     node_map = [nodes(each) for each in nodeID]
     #import ipdb; ipdb.set_trace()
     print("%d nodes generated:"% NO_NODES)
-    network_creator()
-
-def network_creator():
-    dimension= len(nodeID)
-    np.random.seed(7)
-    x=np.random.randint(10, size=(dimension, dimension))
     global node_network
-    node_network= pd.DataFrame(x,columns=nodeID,index=nodeID)
-    #call the network model with (x,nodeID)
+    node_network=network_creator(nodeID,max_latency)
 
-    print(node_network)
+
        
 def trans_generator(env):
     global txID
@@ -230,8 +225,8 @@ if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
     node_generator(env)
-    env.process(trans_generator(env))
-    env.process(monitor(env))
+    #env.process(trans_generator(env))
+    #env.process(monitor(env))
     env.run(until=10)
     print("Simulation ended")
     for each in node_map:
