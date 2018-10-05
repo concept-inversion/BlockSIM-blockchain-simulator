@@ -9,7 +9,7 @@ from tasks import task
 from blocks import Block
 from network_state_graph import network_creator
 
-NO_NODES = 5
+NO_NODES = 3
 MEAN_TRANS_GEN_TIME= 4
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
@@ -45,7 +45,7 @@ class nodes():
     
     def add_task(self,tx):
         
-        self.broadcaster(tx,None,0)
+        self.broadcaster(tx,self.nodeID,0,0)
         self.txpool.append(tx)
         self.known_tx.append(tx.id)
         #logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
@@ -55,35 +55,38 @@ class nodes():
      type= 1 :blocks
     '''
 
-    def receiver(self,data,type):
+    def receiver(self,data,type,sent_by):
         #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
         global MESSAGE_COUNT
         MESSAGE_COUNT -=1
+        #check if the transaction if 0 and if the transaction is already included in the blockchain
         if type==0 and (data.id not in self.known_tx):
             self.txpool.append(data)
             self.known_tx.append(data.id)
-            self.broadcaster(data,self.nodeID,0)
             print("%d received transaction %d at %d"%(self.nodeID,data.id,self.env.now))
+            self.broadcaster(data,self.nodeID,0,sent_by)
+        #check if the block if 0 and if the block is already included in the blockchain
         elif type==1 and (data.id not in self.known_blocks):
             self.intr_data= data
             self.known_blocks.append(data.id)
-            self.broadcaster(data,self.nodeID,1)
+            self.broadcaster(data,self.nodeID,1,sent_by)
             print("%d received block %d at %d"%(self.nodeID,data.id,self.env.now))
             #self.mine_process.interrupt()
         pass
 
-    def broadcaster(self,data,nodeID,type):
+    def broadcaster(self,data,nodeID,type,sent_by):
         global MESSAGE_COUNT
         # Broadcast to neighbour node. For now, broadcast to all.
-        print("%d broadcasting data to other nodes"%self.nodeID)
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         def propagation(delay,each,data,type): 
-            yield self.env.timeout(latency)
-            each.receiver(data,type)
+            yield self.env.timeout(delay)
+            each.receiver(data,type,nodeID)
 
         for each in node_map:
-            if each.nodeID != self.nodeID:                
+            # Dont send to self and to the node which sent the message
+            if (each.nodeID != self.nodeID) and (each.nodeID != sent_by):                
                 #insert delay using nodemap
+                print("%d broadcasting data %d to %d"%(self.nodeID,data.id,each.nodeID))
                 latency = node_network.loc[self.nodeID,each.nodeID]
                 MESSAGE_COUNT +=1
                 self.env.process(propagation(latency,each,data,type))
@@ -225,8 +228,8 @@ if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
     node_generator(env)
-    #env.process(trans_generator(env))
-    #env.process(monitor(env))
+    env.process(trans_generator(env))
+    # env.process(monitor(env))
     env.run(until=10)
     print("Simulation ended")
     for each in node_map:
