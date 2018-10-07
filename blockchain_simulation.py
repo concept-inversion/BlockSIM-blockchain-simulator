@@ -9,8 +9,8 @@ from tasks import task
 from blocks import Block
 from network_state_graph import network_creator
 
-NO_NODES = 3
-MEAN_TRANS_GEN_TIME= 4
+NO_NODES = 4
+MEAN_TRANS_GEN_TIME= 10
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
 BLOCKSIZE= 5
@@ -20,7 +20,7 @@ logging.basicConfig(filename='logs/blockchain.csv',level=logging.DEBUG)
 logger = logging.getLogger()
 curr = time.ctime()
 MESSAGE_COUNT=0
-max_latency=10
+max_latency=5
 #logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
 
@@ -126,7 +126,7 @@ class nodes():
                             print(block)
                             self.block_list.insert(0,block)
                             print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                            self.broadcaster(block,self.nodeID,1)
+                            #self.broadcaster(block,self.nodeID,1,0)
                             self.current_gas=0
                             self.current_size=0
                             self.pendingpool=[]
@@ -173,7 +173,7 @@ def trans_generator(env):
     while True:
         TX_SIZE = random.randint(2300,4000)
         TX_GAS = random.randint(1000,2000)
-        yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
+        
         txID  += 1
         print("Generating |  %d  | time %d ."% (txID,env.now))
         #logger.debug("Generating |  %d  | time %d ."% (txID,env.now))
@@ -185,6 +185,7 @@ def trans_generator(env):
             if i.nodeID==node:
                 print("Transaction %d appended to the node %d "%(txID,i.nodeID))
                 i.add_task(Task)
+        yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
              
 def monitor(env):
     prev_tx = 2300
@@ -192,6 +193,7 @@ def monitor(env):
     avg_pending_tx= 0
     while True:
         print("Current MEssages in the system: %d "%MESSAGE_COUNT)
+        logger.info(",%d,%d"%(env.now,MESSAGE_COUNT))
         yield env.timeout(2)
         print("at step %d "%env.now)
 
@@ -220,7 +222,7 @@ def monitor(env):
             for block in each.block_list:
                 hash_list.add(block.hash)
                 
-        logger.info(",%d,%d"%(env.now,len(len_list)))
+        #logger.info(",%d,%d"%(env.now,len(len_list)))
         
 
     
@@ -229,8 +231,8 @@ if __name__== "__main__":
     env=simpy.Environment()
     node_generator(env)
     env.process(trans_generator(env))
-    # env.process(monitor(env))
-    env.run(until=10)
+    env.process(monitor(env))
+    env.run(until=50)
     print("Simulation ended")
     for each in node_map:
         print("Blocks in node %d " %each.nodeID)
