@@ -1,4 +1,4 @@
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -20,7 +20,9 @@ def network_creator(nodeID,max_latency):
     graph = nx.from_numpy_matrix(x)
     for (u, v) in graph.edges():
         graph[u][v]['weight'] = random.randint(1,max_latency) 
-    netowrk_df= pd.DataFrame(nx.to_numpy_array(graph),columns=nodeID,index=nodeID)
+    network_df= pd.DataFrame(nx.to_numpy_array(graph),columns=nodeID,index=nodeID)
     print("Printing network")
-    print(netowrk_df)
-    return netowrk_df
+    print(network_df)
+    #nx.draw(graph)
+    #nx.draw(nx.from_numpy_array(network_df.values))
+    return network_df
