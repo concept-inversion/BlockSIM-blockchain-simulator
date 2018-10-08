@@ -2,9 +2,10 @@ import hashlib
 import time
 
 class Block():
-    def __init__(self,size,id,transactions,node):
+    def __init__(self,size,id,transactions,node,prev_hash):
         self.size = size
         self.hash = self.hash_generator(transactions)
+        self.prev_hash=0 
         self.type = 2
         self.generated_by= node
         self.id= id
@@ -22,9 +23,7 @@ class Block():
         re = [(each.id) for each in tasks ]
         re.sort()
         p = ','.join(map(str, re)).encode('utf-8')
-        self.hash=hashlib.md5(p).hexdigest()
-         
-        pass
+        return (hashlib.md5(p).hexdigest())
 
     def validator(self,tasks):
         # create hash of transactions
