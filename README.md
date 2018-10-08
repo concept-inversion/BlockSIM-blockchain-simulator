@@ -15,4 +15,4 @@ A blockchain simulator based on SimPy in python 3.
 
 Open Terminal(Linux) or Command(Windows) and type:
     
-    python blockchain_simulation.py
+        python blockchain_simulation.py
