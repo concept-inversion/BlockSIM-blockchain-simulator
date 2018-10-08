@@ -1,7 +1,7 @@
 # blockchain-simulator
 A blockchain simulator based on SimPy in python 3. 
 
-##Steps to Install:
+## Steps to Install:
 
 1. Clone this project or download
 
