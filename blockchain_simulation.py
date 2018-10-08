@@ -21,7 +21,7 @@ logger = logging.getLogger()
 curr = time.ctime()
 MESSAGE_COUNT=0
 max_latency=5
-#logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
+logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
 
 
@@ -38,18 +38,16 @@ class nodes():
         self.current_size=0
         self.known_blocks=[]
         self.known_tx=[]
+        self.prev_hash=0
         self.res= simpy.Resource(env,capacity=1)
-        self.mine_process = env.process(self.mining())
+        self.mine_process = env.process(self.miner())
         print("Node generated with node ID: %d " % self.nodeID)
-        #logger.debug('%d , generated, %d'%(self.nodeID,env.now))
+        logger.debug('%d,%d, generated, node, -'%(env.now,self.nodeID))
     
     def add_task(self,tx):
-        
-        self.broadcaster(tx,self.nodeID,0,0)
         self.txpool.append(tx)
         self.known_tx.append(tx.id)
-        #logger.debug('%d , Tx incoming, %d'%(self.nodeID,env.now))
-    
+        self.broadcaster(tx,self.nodeID,0,0)
     '''
      type= 0 :transactions
      type= 1 :blocks
@@ -58,20 +56,22 @@ class nodes():
     def receiver(self,data,type,sent_by):
         #If it is a transaction, add it to the pool; Later on verify if the tx has already happened
         global MESSAGE_COUNT
-        MESSAGE_COUNT -=1
+        MESSAGE_COUNT-= 1
         #check if the transaction if 0 and if the transaction is already included in the blockchain
         if type==0 and (data.id not in self.known_tx):
             self.txpool.append(data)
             self.known_tx.append(data.id)
             print("%d received transaction %d at %d"%(self.nodeID,data.id,self.env.now))
+            logger.debug("%d,%d,received,transaction,%d "%(self.env.now,self.nodeID,data.id))
             self.broadcaster(data,self.nodeID,0,sent_by)
         #check if the block if 0 and if the block is already included in the blockchain
         elif type==1 and (data.id not in self.known_blocks):
             self.intr_data= data
             self.known_blocks.append(data.id)
             self.broadcaster(data,self.nodeID,1,sent_by)
-            print("%d received block %d at %d"%(self.nodeID,data.id,self.env.now))
-            #self.mine_process.interrupt()
+            print("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
+            logger.debug("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
+            self.mine_process.interrupt()
         pass
 
     def broadcaster(self,data,nodeID,type,sent_by):
@@ -81,12 +81,12 @@ class nodes():
         def propagation(delay,each,data,type): 
             yield self.env.timeout(delay)
             each.receiver(data,type,nodeID)
-
+        print("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
+        logger.debug("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
         for each in node_map:
             # Dont send to self and to the node which sent the message
             if (each.nodeID != self.nodeID) and (each.nodeID != sent_by):                
                 #insert delay using nodemap
-                print("%d broadcasting data %d to %d"%(self.nodeID,data.id,each.nodeID))
                 latency = node_network.loc[self.nodeID,each.nodeID]
                 MESSAGE_COUNT +=1
                 self.env.process(propagation(latency,each,data,type))
@@ -94,7 +94,7 @@ class nodes():
                  
         pass
 
-    def mining(self):
+    def miner(self):
         '''
          Starts mining/verification of the transactions and handles interrupt for updating the blocks.
          1. Add task send interrupts to this process.
@@ -116,24 +116,25 @@ class nodes():
                             #print("added task to the pending pool")
                         
                         else:
-                            print("%d Create a block" %self.nodeID)
-                            #logger.debug('%d , Creating block, %d'%(self.nodeID,env.now))
                             global BLOCKID
                             BLOCKID+= 1
                             # could this pass for pending pool be pass by refere3nce ? 
-                            block = Block(self.current_size,BLOCKID,self.pendingpool,self.nodeID) 
-                            print("The created block is: ")
-                            print(block)
+                            block = Block(self.current_size,BLOCKID,self.pendingpool,self.nodeID,self.prev_hash)
+                            self.prev_hash = block.hash 
+                            print('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
+                            logger.debug('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
+                            print("hash of block is %s"%block.hash)
                             self.block_list.insert(0,block)
                             print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                            #self.broadcaster(block,self.nodeID,1,0)
+                            logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                            self.known_blocks.append(block.id)
+                            self.broadcaster(block,self.nodeID,1,0)
                             self.current_gas=0
                             self.current_size=0
                             self.pendingpool=[]
             except simpy.Interrupt:
-                print("%d is interrupted " %self.nodeID)
-                #logger.debug('%d , Interrupted, %d'%(self.nodeID,env.now))
-                # use this for verification
+                print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
+                logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 '''
                 #verify here
                 #print("hash of tx is")
@@ -143,6 +144,7 @@ class nodes():
                 '''
                 self.block_list.insert(0,self.intr_data)
                 print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                 self.txpool=[]
                 self.intr_data=None
                 self.current_gas=0
@@ -164,9 +166,7 @@ def node_generator(env):
     print("%d nodes generated:"% NO_NODES)
     global node_network
     node_network=network_creator(nodeID,max_latency)
-
-
-       
+  
 def trans_generator(env):
     global txID
     txID = 2300
@@ -175,15 +175,14 @@ def trans_generator(env):
         TX_GAS = random.randint(1000,2000)
         
         txID  += 1
-        print("Generating |  %d  | time %d ."% (txID,env.now))
-        #logger.debug("Generating |  %d  | time %d ."% (txID,env.now))
         Task = task(TX_GAS,TX_SIZE,txID)
         # Choose a node randomly from the nodelist
         node = random.choice(nodeID)
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
             if i.nodeID==node:
-                print("Transaction %d appended to the node %d "%(txID,i.nodeID))
+                print("%d, %d, Appended, Transaction, %d"%(env.now,i.nodeID,txID))
+                logger.debug("%d, %d,Appended, Transaction, %d"%(env.now,i.nodeID,txID))
                 i.add_task(Task)
         yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
              
@@ -223,18 +222,22 @@ def monitor(env):
                 hash_list.add(block.hash)
                 
         #logger.info(",%d,%d"%(env.now,len(len_list)))
-        
-
-    
+           
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
     node_generator(env)
     env.process(trans_generator(env))
-    env.process(monitor(env))
-    env.run(until=50)
+    #env.process(monitor(env))
+    env.run(until=150)
+    print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
+    logger.info("Simulation ended")
     for each in node_map:
-        print("Blocks in node %d " %each.nodeID)
-        #for one in each.block_list:
-            #one.view_blocks()
+        #logger.info("Blocks in node %d " %each.nodeID)
+        print("Blocks in node %d: " %each.nodeID)
+        for one in each.block_list:
+            print("Created by %d"%one.generated_by)
+            one.view_blocks()
+            #logger.info(one.view_blocks())
+        print("----------------------------------------------")
