@@ -9,10 +9,10 @@ A blockchain simulator based on SimPy in python 3.
 
 3. Install all the python package requirements:
 
-        ```pip install -r requirements.txt```
+        pip install -r requirements.txt
 
 ## How to run:
 
 Open Terminal(Linux) or Command(Windows) and type:
     
-    ```python blockchain_simulation.py```
+    python blockchain_simulation.py
