@@ -11,8 +11,22 @@ A blockchain simulator based on SimPy in python 3.
 
         pip install -r requirements.txt
 
+## Files:
+
+1. tasks.py : A class for Transactions representation
+
+2. blocks.py : A class for Block representation
+
+3. network_state_graph.py: A class for creating network topology with latency
+
+4. blockchain_simulation.py: Main script for running the simulator
+
 ## How to run:
 
 Open Terminal(Linux) or Command(Windows) and type:
     
         python blockchain_simulation.py
+
+## Parameters
+Currently, for changing the parameters of the simulation, we need to change the value of parameters in the blockchain_simulation.py
+   
