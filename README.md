@@ -13,7 +13,7 @@ A blockchain simulator based on SimPy in python 3.
 
 ## Files:
 
-1. tasks.py : A class for Transactions representation
+1. transactions.py : A class for Transactions representation
 
 2. blocks.py : A class for Block representation
 
@@ -30,3 +30,6 @@ Open Terminal(Linux) or Command(Windows) and type:
 ## Parameters
 Currently, for changing the parameters of the simulation, we need to change the value of parameters in the blockchain_simulation.py
    
+## Format of Log:
+
+        Time |  nodeID  |  Event   | Data Type  | Data ID  
