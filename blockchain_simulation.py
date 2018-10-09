@@ -9,7 +9,7 @@ from transactions import Transaction
 from blocks import Block
 from network_state_graph import network_creator
 
-NO_NODES = 4
+NO_NODES = 2
 MEAN_TRANS_GEN_TIME= 10
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
@@ -181,13 +181,10 @@ class nodes():
             except simpy.Interrupt:
                 print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
-                '''
-                #verify here
-                #print("hash of tx is")
-                check=self.intr_data.validator(self.pendingpool)
-                if check == True:
-                    print("block match")
-                '''
+                # Verify the block:
+                #import ipdb; ipdb.set_trace()
+                if self.prev_hash == self.intr_data.prev_hash:
+                    print("Previous hash match")
                 self.block_list.insert(0,self.intr_data)
                 print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                 logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
@@ -279,7 +276,7 @@ if __name__== "__main__":
     node_generator(env)
     env.process(trans_generator(env))
     #env.process(monitor(env))
-    env.run(until=150)
+    env.run(until=50)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
