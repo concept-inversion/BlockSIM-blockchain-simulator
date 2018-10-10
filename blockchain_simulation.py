@@ -8,6 +8,7 @@ import pandas as pd
 from transactions import Transaction
 from blocks import Block
 from network_state_graph import network_creator
+from monitor import creater_logger
 
 NO_NODES = 2
 MEAN_TRANS_GEN_TIME= 10
@@ -16,12 +17,10 @@ MINING_TIME= 2
 BLOCKSIZE= 5
 txpool_SIZE= 10
 BLOCKTIME = 20
-logging.basicConfig(filename='logs/blockchain.csv',level=logging.DEBUG)
-logger = logging.getLogger()
 curr = time.ctime()
 MESSAGE_COUNT=0
 max_latency=5
-logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
+#logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 BLOCKID= 99900
 
 
@@ -238,9 +237,9 @@ def monitor(env):
     prev_block = 99900
     avg_pending_tx= 0
     while True:
-        print("Current MEssages in the system: %d "%MESSAGE_COUNT)
-        logger.info(",%d,%d"%(env.now,MESSAGE_COUNT))
         yield env.timeout(2)
+        print("Current MEssages in the system: %d "%MESSAGE_COUNT)
+        message_count_logger.info("%d,%d"%(env.now,MESSAGE_COUNT))
         print("at step %d "%env.now)
 
         #Transaction per second(Throughput)
@@ -251,13 +250,15 @@ def monitor(env):
         #Avg Block created
         avg_block= BLOCKID-prev_block
         prev_block=BLOCKID
-        #logger.info(",%d,%d"%(env.now,avg_block))
+        block_creation_logger.info("%d,%d"%(env.now,avg_block))
+        
+
         
         #State of the netowork 
         for each in node_map:
             avg_pending_tx+= len(each.pendingpool)
         average= avg_pending_tx/len(node_map)
-        #logger.info(",%d,%d"%(env.now,average))
+        pending_transaction_logger.info("%d,%d"%(env.now,average))        
         avg_pending_tx=0
 
         # Eventual Consistency
@@ -267,15 +268,16 @@ def monitor(env):
             len_list.add(len(each.block_list))
             for block in each.block_list:
                 hash_list.add(block.hash)
-                
-        #logger.info(",%d,%d"%(env.now,len(len_list)))
+              
+        unique_block_logger.info("%d,%d"%(env.now,len(len_list)))
            
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
+    message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger=creater_logger()
     node_generator(env)
     env.process(trans_generator(env))
-    #env.process(monitor(env))
+    env.process(monitor(env))
     env.run(until=50)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
