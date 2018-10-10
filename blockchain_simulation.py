@@ -10,8 +10,8 @@ from blocks import Block
 from network_state_graph import network_creator
 from monitor import creater_logger
 
-NO_NODES = 2
-MEAN_TRANS_GEN_TIME= 10
+NO_NODES = 3
+MEAN_TRANS_GEN_TIME= 5
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
 BLOCKSIZE= 5
@@ -237,7 +237,7 @@ def monitor(env):
     prev_block = 99900
     avg_pending_tx= 0
     while True:
-        yield env.timeout(2)
+        yield env.timeout(1)
         print("Current MEssages in the system: %d "%MESSAGE_COUNT)
         message_count_logger.info("%d,%d"%(env.now,MESSAGE_COUNT))
         print("at step %d "%env.now)
@@ -257,11 +257,11 @@ def monitor(env):
         #State of the netowork 
         for each in node_map:
             avg_pending_tx+= len(each.pendingpool)
-        average= avg_pending_tx/len(node_map)
+        average= avg_pending_tx
         pending_transaction_logger.info("%d,%d"%(env.now,average))        
         avg_pending_tx=0
 
-        # Eventual Consistency
+        # Eventual Consistency # Verified
         hash_list = set()
         len_list = set()
         for each in node_map:
@@ -269,7 +269,7 @@ def monitor(env):
             for block in each.block_list:
                 hash_list.add(block.hash)
               
-        unique_block_logger.info("%d,%d"%(env.now,len(len_list)))
+        unique_block_logger.info("%d,%d"%(env.now,len(hash_list)))
            
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
@@ -278,7 +278,7 @@ if __name__== "__main__":
     node_generator(env)
     env.process(trans_generator(env))
     env.process(monitor(env))
-    env.run(until=50)
+    env.run(until=150)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
