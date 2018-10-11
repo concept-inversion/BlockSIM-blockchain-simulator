@@ -10,7 +10,7 @@ from blocks import Block
 from network_state_graph import network_creator
 from monitor import creater_logger
 
-NO_NODES = 3
+NO_NODES = 5
 MEAN_TRANS_GEN_TIME= 5
 SD_TRANS_GEN_TIME= 0.5
 MINING_TIME= 2
@@ -127,9 +127,11 @@ class nodes():
             if (each.nodeID != self.nodeID) and (each.nodeID != sent_by):                
                 #insert delay using nodemap
                 latency = node_network.loc[self.nodeID,each.nodeID]
-                MESSAGE_COUNT +=1
-                self.env.process(propagation(latency,each,data,type))
-
+                if latency!=0:    
+                    MESSAGE_COUNT +=1
+                    self.env.process(propagation(latency,each,data,type))
+                else:
+                    pass
                  
         pass
 
@@ -240,7 +242,6 @@ def monitor(env):
         yield env.timeout(1)
         print("Current MEssages in the system: %d "%MESSAGE_COUNT)
         message_count_logger.info("%d,%d"%(env.now,MESSAGE_COUNT))
-        print("at step %d "%env.now)
 
         #Transaction per second(Throughput)
         avg_tx= txID-prev_tx
@@ -278,7 +279,7 @@ if __name__== "__main__":
     node_generator(env)
     env.process(trans_generator(env))
     env.process(monitor(env))
-    env.run(until=150)
+    env.run(until=10)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
