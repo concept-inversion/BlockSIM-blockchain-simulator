@@ -20,6 +20,7 @@ BLOCKTIME = 20
 curr = time.ctime()
 MESSAGE_COUNT=0
 max_latency=5
+BLOCKID= 99900
 #logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
 
 
@@ -164,9 +165,9 @@ class nodes():
                             #print("added task to the pending pool")
                         
                         else:
-                            
-                             
-                            # could this pass for pending pool be pass by refere3nce ? 
+                            # could this pass for pending pool be pass by reference ? 
+                            global BLOCKID
+                            BLOCKID+=1
                             self.prev_block +=1
                             block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
                             self.prev_hash = block.hash 
@@ -297,8 +298,8 @@ if __name__== "__main__":
     env=simpy.Environment()
     message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger=creater_logger()
     node_generator(env)
-    env.process(trans_generator(env))
-    env.process(monitor(env))
+    #env.process(trans_generator(env))
+    #env.process(monitor(env))
     env.run(until=50)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
