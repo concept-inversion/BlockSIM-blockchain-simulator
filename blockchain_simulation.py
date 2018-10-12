@@ -21,7 +21,6 @@ curr = time.ctime()
 MESSAGE_COUNT=0
 max_latency=5
 #logger.info("-----------------------------------Start of the new Session at %s-------------------------------"%curr)
-BLOCKID= 99900
 
 
 class nodes():
@@ -55,6 +54,7 @@ class nodes():
         self.known_blocks=[]
         self.known_tx=[]
         self.prev_hash=0
+        self.prev_block=99900
         #self.res= simpy.Resource(env,capacity=1)
         self.mine_process = env.process(self.miner())
         print("Node generated with node ID: %d " % self.nodeID)
@@ -148,7 +148,7 @@ class nodes():
             If a new block is received, the mining process will be interrupted. After interrupt,
             check if the previous block hash of the node matches the previous hash of the block.
         TODO: 
-            What to do if the hash mismatch is happened  
+            What to do if prev hash and block id do not match  
         '''
     
         while True:
@@ -158,16 +158,17 @@ class nodes():
                     for each_tx in self.txpool:
                         self.current_gas += each_tx.gas
                         self.current_size = each_tx.size
-                        # TODO: Check if the order is correct
+                        #  Checked: done
                         if self.current_gas < self.block_gas_limit:
                             self.pendingpool.append(self.txpool.pop(0))
                             #print("added task to the pending pool")
                         
                         else:
-                            global BLOCKID
-                            BLOCKID+= 1
+                            
+                             
                             # could this pass for pending pool be pass by refere3nce ? 
-                            block = Block(self.current_size,BLOCKID,self.pendingpool,self.nodeID,self.prev_hash)
+                            self.prev_block +=1
+                            block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
                             self.prev_hash = block.hash 
                             print('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
                             logger.debug('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
@@ -185,6 +186,7 @@ class nodes():
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 # Verify the block:
                 #import ipdb; ipdb.set_trace()
+                # check block number
                 if self.prev_hash == self.intr_data.prev_hash:
                     print("Previous hash match")
                     # check the list of transactions
