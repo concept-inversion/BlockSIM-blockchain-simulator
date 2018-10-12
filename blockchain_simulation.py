@@ -158,6 +158,7 @@ class nodes():
                     for each_tx in self.txpool:
                         self.current_gas += each_tx.gas
                         self.current_size = each_tx.size
+                        # TODO: Check if the order is correct
                         if self.current_gas < self.block_gas_limit:
                             self.pendingpool.append(self.txpool.pop(0))
                             #print("added task to the pending pool")
@@ -186,12 +187,29 @@ class nodes():
                 #import ipdb; ipdb.set_trace()
                 if self.prev_hash == self.intr_data.prev_hash:
                     print("Previous hash match")
-                self.block_list.insert(0,self.intr_data)
-                print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                self.txpool=[]
-                self.intr_data=None
-                self.current_gas=0
+                    # check the list of transactions
+                    block_set= set(self.intr_data.transactions)
+                    node_set = set(self.pendingpool)
+                    if block_set != node_set:
+                        block_extra= block_set-node_set
+                        node_extra= node_set-block_set
+                        # add item to known tx and transaction pool
+                        # Todo : tx id could be repeated in the known tx. Use set for known_tx
+                        #import ipdb; ipdb.set_trace()
+                        self.known_tx.extend(list(block_extra))
+                        # move mismatched tx from pendingpool to the txpool
+                        self.temp_trans = [each for each in self.pendingpool if each.id in node_extra]
+                    
+                        self.txpool.extend(self.temp_trans)
+                        
+                    self.block_list.insert(0,self.intr_data)
+                    print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                    logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                    self.pendingpool=[]
+                    self.intr_data=None
+                    self.current_gas=0
+                else:
+                    print("blockchain out of sync")
 
 
 def node_generator(env):
@@ -240,7 +258,7 @@ def monitor(env):
     avg_pending_tx= 0
     while True:
         yield env.timeout(1)
-        print("Current MEssages in the system: %d "%MESSAGE_COUNT)
+        #print("Current MEssages in the system: %d "%MESSAGE_COUNT)
         message_count_logger.info("%d,%d"%(env.now,MESSAGE_COUNT))
 
         #Transaction per second(Throughput)
@@ -279,7 +297,7 @@ if __name__== "__main__":
     node_generator(env)
     env.process(trans_generator(env))
     env.process(monitor(env))
-    env.run(until=10)
+    env.run(until=50)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
