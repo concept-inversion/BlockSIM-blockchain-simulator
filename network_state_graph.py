@@ -6,18 +6,24 @@ import random
 # use graphviz
 
 def show_network(data,labels):
-    
     pass
 
 def network_creator(nodeID,max_latency):
     '''
+    Arguments:
+    1. nodeID : List of nodes ID
+    2. max_latency: Maximum latency to be asserted in communication between nodes
     For future improvements, make sure to handle an unconnected node.
     '''
 
     dimension= len(nodeID)
+    # Generate a random adjency matrix of size dimension * dimension for lookup table
     x=np.random.randint(2, size=(dimension, dimension))
+    # Fill diagonal value with 0 for representing 0 latency for self communication.
     np.fill_diagonal(x,0)
+    # Generate a graph
     graph = nx.from_numpy_matrix(x)
+    # Add latency randomly
     for (u, v) in graph.edges():
         graph[u][v]['weight'] = random.randint(1,max_latency) 
     network_df= pd.DataFrame(nx.to_numpy_array(graph),columns=nodeID,index=nodeID)
@@ -26,3 +32,4 @@ def network_creator(nodeID,max_latency):
     #nx.draw(graph)
     #nx.draw(nx.from_numpy_array(network_df.values))
     return network_df
+ 
