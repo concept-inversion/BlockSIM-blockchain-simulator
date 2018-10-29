@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from transactions import Transaction
 from blocks import Block
-from network_state_graph import network_creator
+from network_state_graph import network_creator,csv_loader
 from monitor import creater_logger
 
 #Time Frame= 1:100ms 
@@ -65,6 +65,7 @@ class nodes():
         self.prev_hash=0
         self.prev_block=99900
         #self.res= simpy.Resource(env,capacity=1)
+        self.miner_flag=0
         self.mine_process = env.process(self.miner())
         print("Node generated with node ID: %d " % self.nodeID)
         logger.debug('%d,%d, generated, node, -'%(env.now,self.nodeID))
@@ -183,6 +184,7 @@ class nodes():
                             logger.debug('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
                             print("hash of block is %s"%block.hash)
                             self.block_list.insert(0,block)
+                            block_stability_logger.info("%s,%d,%d"%(env.now,self.nodeID,block.id))
                             print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                             logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                             self.known_blocks.append(block.id)
@@ -214,6 +216,7 @@ class nodes():
                         self.txpool.extend(self.temp_trans)
                         
                     self.block_list.insert(0,self.intr_data)
+                    block_stability_logger.info("%s,%d,%d"%(env.now,self.nodeID,self.intr_data.id))
                     print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     self.pendingpool=[]
@@ -235,7 +238,10 @@ def node_generator(env):
     #import ipdb; ipdb.set_trace()
     print("%d nodes generated:"% NO_NODES)
     global node_network
-    node_network=network_creator(nodeID,max_latency)
+    #load from csv
+    node_network=csv_loader()
+    # create a network
+    #node_network=network_creator(nodeID,max_latency)
   
 def trans_generator(env):
     '''
@@ -255,6 +261,8 @@ def trans_generator(env):
         transaction = Transaction(TX_GAS,TX_SIZE,txID)
         # Choose a node randomly from the nodelist
         node = random.choice(nodeID)
+        # select a miner
+        
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
             if i.nodeID==node:
@@ -304,19 +312,19 @@ def monitor(env):
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     env=simpy.Environment()
-    message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger=creater_logger()
+    message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger,block_stability_logger=creater_logger()
     node_generator(env)
-    env.process(trans_generator(env))
+    #env.process(trans_generator(env))
     #env.process(monitor(env))
-    env.run(until=50)
+    #env.run(until=100)
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
-    for each in node_map:
-        #logger.info("Blocks in node %d " %each.nodeID)
-        print("Blocks in node %d: " %each.nodeID)
-        for one in each.block_list:
-            print("Created by %d"%one.generated_by)
-            one.view_blocks()
-            #logger.info(one.view_blocks())
-        print("----------------------------------------------")
+    # for each in node_map:
+    #     #logger.info("Blocks in node %d " %each.nodeID)
+    #     print("Blocks in node %d: " %each.nodeID)
+    #     for one in each.block_list:
+    #         print("Created by %d"%one.generated_by)
+    #         one.view_blocks()
+    #         #logger.info(one.view_blocks())
+    #     print("----------------------------------------------")

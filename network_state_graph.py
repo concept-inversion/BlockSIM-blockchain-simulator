@@ -8,6 +8,12 @@ import random
 def show_network(data,labels):
     pass
 
+def csv_loader():
+    data = pd.read_csv("network_model.csv")
+    data.set_index('node',inplace=True)
+    return data
+
+
 def network_creator(nodeID,max_latency):
     '''
     Arguments:

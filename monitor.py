@@ -20,6 +20,7 @@ def creater_logger():
     BLOCK_CREATION='%s/block_creation.csv'%fullpath
     MESSAGE_COUNT= '%s/message_count.csv'%fullpath
     logger= '%s/blockchain.csv'%fullpath
+    block_stability='%s/block_stability.csv'%fullpath
 
     message_count_logger=logging.getLogger("blockchain.MESSAGE_COUNT")
     message_count_logger.setLevel(logging.INFO)
@@ -51,9 +52,18 @@ def creater_logger():
     root_logger_file_handler.setLevel(logging.DEBUG)
     root_logger.addHandler(root_logger_file_handler)
 
+    block_stability_logger=logging.getLogger("blockchain.block_stability")
+    block_stability_logger.setLevel(logging.INFO)
+    block_stability_logger_file_handler = FileHandler(block_stability)
+    block_stability_logger_file_handler.setLevel(logging.INFO)
+    block_stability_logger.addHandler(block_stability_logger_file_handler)
+
     message_count_logger.info("Time,message_count")
     block_creation_logger.info("Time, average block")
     pending_transaction_logger.info("Time, pending_transaction")
     unique_block_logger.info("Time,unique_blocks")
+    block_stability_logger.info("Time,Node,Block")
 
-    return message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,root_logger
+
+
+    return message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,root_logger,block_stability_logger
