@@ -10,9 +10,11 @@ from blocks import Block
 from network_state_graph import network_creator
 from monitor import creater_logger
 
+#Time Frame= 1:100ms 
+
 NO_NODES = 5
-MEAN_TRANS_GEN_TIME= 5
-SD_TRANS_GEN_TIME= 0.5
+MEAN_TRANS_GEN_TIME= 1
+SD_TRANS_GEN_TIME= 0.1
 MINING_TIME= 2
 BLOCKSIZE= 5
 txpool_SIZE= 10
@@ -28,14 +30,20 @@ class nodes():
     '''
     Properties:
     1. nodeID:      Representing a node
+    
     2. txpool:      A list representing the nodes transaction pool. Its where a new transaction is appended. Acts like a buffer
+    
     3. pendingpool: A list where transaction are stored to form a new block. 
                     Transaction are poped from txpool and are appended to this pool.
+    
     4. block_list:  List of blocks of the node
+
     5. known_blocks: List of known blocks. It is used for preventing block broadcast forever. It function
                      is defined below in receiver.
+
     6. known_tx:    List of known Transaction. It is used for preventing block broadcast forever. It function
                      is defined below in receiver.
+
     7. prev_hash:   Hash of the recent block formed
 
     8. mine_process: A pointer representing the mining/validator/consensus process. This variable is used to 
@@ -48,7 +56,7 @@ class nodes():
         self.env= env
         self.txpool= []
         self.pendingpool = []
-        self.block_gas_limit = 5000 
+        self.block_gas_limit = 4700000 
         self.block_list= []
         self.current_gas=0
         self.current_size=0
@@ -241,7 +249,7 @@ def trans_generator(env):
     while True:
         # Generate random transaction size and gas
         TX_SIZE = random.randint(2300,4000)
-        TX_GAS = random.randint(1000,2000)
+        TX_GAS = random.randint(21000,400000)
         
         txID  += 1
         transaction = Transaction(TX_GAS,TX_SIZE,txID)
@@ -298,7 +306,7 @@ if __name__== "__main__":
     env=simpy.Environment()
     message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger=creater_logger()
     node_generator(env)
-    #env.process(trans_generator(env))
+    env.process(trans_generator(env))
     #env.process(monitor(env))
     env.run(until=50)
     print("----------------------------------------------------------------------------------------------")

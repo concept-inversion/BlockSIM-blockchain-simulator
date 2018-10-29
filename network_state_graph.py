@@ -18,6 +18,7 @@ def network_creator(nodeID,max_latency):
 
     dimension= len(nodeID)
     # Generate a random adjency matrix of size dimension * dimension for lookup table
+    np.random.seed(7)
     x=np.random.randint(2, size=(dimension, dimension))
     # Fill diagonal value with 0 for representing 0 latency for self communication.
     np.fill_diagonal(x,0)
@@ -25,6 +26,7 @@ def network_creator(nodeID,max_latency):
     graph = nx.from_numpy_matrix(x)
     # Add latency randomly
     for (u, v) in graph.edges():
+        np.random.seed(7)
         graph[u][v]['weight'] = random.randint(1,max_latency) 
     network_df= pd.DataFrame(nx.to_numpy_array(graph),columns=nodeID,index=nodeID)
     print("Printing network")
