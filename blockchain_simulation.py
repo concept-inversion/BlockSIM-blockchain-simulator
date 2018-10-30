@@ -231,15 +231,19 @@ def node_generator(env):
     Generated list of 'n' nodes and network topology with latency using network_creator from 
     network_state_graph based on the parameter NO_NODES
     '''
+    #load from csv; should create a nodeID and node_map
+    global node_network
+    node_network=csv_loader()
+    '''
+
+    '''
     global nodeID
     nodeID= random.sample(range(1000,1000+NO_NODES),NO_NODES)
     global node_map
     node_map = [nodes(each) for each in nodeID]
-    #import ipdb; ipdb.set_trace()
     print("%d nodes generated:"% NO_NODES)
-    global node_network
-    #load from csv
-    node_network=csv_loader()
+    
+    
     # create a network
     #node_network=network_creator(nodeID,max_latency)
   
