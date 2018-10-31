@@ -3,6 +3,7 @@ import time
 import simpy
 import logging
 import copy
+import json
 import numpy as np
 import pandas as pd
 from transactions import Transaction
@@ -11,10 +12,6 @@ from network_state_graph import network_creator,csv_loader
 from monitor import creater_logger
 
 #Time Frame= 1:100ms 
-
-NO_NODES = 5
-MEAN_TRANS_GEN_TIME= 1
-SD_TRANS_GEN_TIME= 0.1
 MINING_TIME= 2
 BLOCKSIZE= 5
 txpool_SIZE= 10
@@ -56,7 +53,7 @@ class nodes():
         self.env= env
         self.txpool= []
         self.pendingpool = []
-        self.block_gas_limit = 4700000 
+        self.block_gas_limit = 470000 
         self.block_list= []
         self.current_gas=0
         self.current_size=0
@@ -163,38 +160,38 @@ class nodes():
     
         while True:
             try:
-                yield env.timeout(1)   
-                if len(self.txpool) != 0:
-                    for each_tx in self.txpool:
-                        self.current_gas += each_tx.gas
-                        self.current_size = each_tx.size
-                        #  Checked: done
-                        if self.current_gas < self.block_gas_limit:
-                            self.pendingpool.append(self.txpool.pop(0))
-                            #print("added task to the pending pool")
-                        
-                        else:
-                            # could this pass for pending pool be pass by reference ? 
-                            global BLOCKID
-                            BLOCKID+=1
-                            self.prev_block +=1
-                            block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
-                            self.prev_hash = block.hash 
-                            print('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
-                            logger.debug('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
-                            print("hash of block is %s"%block.hash)
-                            self.block_list.insert(0,block)
-                            block_stability_logger.info("%s,%d,%d"%(env.now,self.nodeID,block.id))
-                            print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                            logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                            self.known_blocks.append(block.id)
-                            self.broadcaster(block,self.nodeID,1,0)
-                            self.current_gas=0
-                            self.current_size=0
-                            self.pendingpool=[]
+                yield env.timeout(1)
+                if self.miner_flag==1:   
+                    if len(self.txpool) != 0:
+                        for each_tx in self.txpool:
+                            self.current_gas += each_tx.gas
+                            self.current_size = each_tx.size
+                            #  Checked: done
+                            if self.current_gas < self.block_gas_limit:
+                                self.pendingpool.append(self.txpool.pop(0))
+                                #print("added task to the pending pool")
+                            else:
+                                # could this pass for pending pool be pass by reference ? 
+                                global BLOCKID
+                                BLOCKID+=1
+                                self.prev_block +=1
+                                block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
+                                self.prev_hash = block.hash 
+                                print('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
+                                logger.debug('%d, %d, Created, block, %d'%(env.now,self.nodeID,block.id))
+                                print("hash of block is %s"%block.hash)
+                                self.block_list.insert(0,block)
+                                block_stability_logger.info("%s,%d,%d"%(env.now,self.nodeID,block.id))
+                                print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                                logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+                                self.known_blocks.append(block.id)
+                                self.broadcaster(block,self.nodeID,1,0)
+                                self.current_gas=0
+                                self.current_size=0
+                                self.pendingpool=[]
             except simpy.Interrupt:
                 print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
-                logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
+                logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))      
                 # Verify the block:
                 #import ipdb; ipdb.set_trace()
                 # check block number
@@ -236,16 +233,26 @@ def node_generator(env):
     #load from csv; should create a nodeID and node_map
     if load_csv==1:
         global node_network,nodeID
-        node_network,nodeID=csv_loader()
+        node_network=csv_loader()
 
     else:
         global nodeID
-        nodeID= random.sample(range(1000,1000+NO_NODES),NO_NODES)
+        nodeID= random.sample(range(1000,1000+config['n_nodes']),config['n_nodes'])
         node_network=network_creator(nodeID,max_latency)
     
     global node_map
     node_map = [nodes(each) for each in nodeID]
-    print("%d nodes generated:"% NO_NODES)
+
+    if config['consensus']=="POW":
+        n_miner=config['POW']['miner_number']
+        # select n nodes randomly
+        miner_nodes=np.random.choice(node_map,n_miner,replace=False)
+        # Change the miner_flag for those nodes 
+        for each in miner_nodes:
+            each.miner_flag=1
+            print("%d selected as miner"%each.nodeID)
+    
+    
   
 def trans_generator(env):
     '''
@@ -273,7 +280,7 @@ def trans_generator(env):
                 print("%d, %d, Appended, Transaction, %d"%(env.now,i.nodeID,txID))
                 logger.debug("%d, %d,Appended, Transaction, %d"%(env.now,i.nodeID,txID))
                 i.add_transaction(transaction)
-        yield env.timeout(random.gauss(MEAN_TRANS_GEN_TIME,SD_TRANS_GEN_TIME))
+        yield env.timeout(random.gauss(config['mean_tx_generation'],config['sd_tx_generation']))
              
 def monitor(env):
     prev_tx = 2300
@@ -315,20 +322,23 @@ def monitor(env):
            
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
-    # env=simpy.Environment()
+    with open('config/config.json') as json_data:
+        config= json.load(json_data)
+    env=simpy.Environment()
     message_count_logger,block_creation_logger,unique_block_logger,pending_transaction_logger,logger,block_stability_logger=creater_logger()
-    #node_generator(env)
-    #env.process(trans_generator(env))
-    #env.process(monitor(env))
-    #env.run(until=100)
+    
+    node_generator(env)
+    env.process(trans_generator(env))
+    env.process(monitor(env))
+    env.run(until=config['sim_time'])
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
-    #logger.info("Simulation ended")
-    # for each in node_map:
-    #     #logger.info("Blocks in node %d " %each.nodeID)
-    #     print("Blocks in node %d: " %each.nodeID)
-    #     for one in each.block_list:
-    #         print("Created by %d"%one.generated_by)
-    #         one.view_blocks()
-    #         #logger.info(one.view_blocks())
-    #     print("----------------------------------------------")
+    logger.info("Simulation ended")
+    for each in node_map:
+        #logger.info("Blocks in node %d " %each.nodeID)
+        print("Blocks in node %d: " %each.nodeID)
+        for one in each.block_list:
+            print("Created by %d"%one.generated_by)
+            one.view_blocks()
+            #logger.info(one.view_blocks())
+        print("----------------------------------------------")
