@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 study/
 .vscode/
 
 
-=======
-logs/*
->>>>>>> 4524e8cfefcf4c75723bd7fa62777555b7ec74e4
+src/logs/*
+results/*
+test_notebooks/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
