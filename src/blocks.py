@@ -13,7 +13,7 @@ class Block():
         '''
         self.size = size
         self.hash = self.hash_generator(transactions)
-        self.prev_hash=0 
+        self.prev_hash=prev_hash 
         self.type = 2
         self.generated_by= node
         self.id= id

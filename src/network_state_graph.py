@@ -37,7 +37,7 @@ def network_creator(nodeID,max_latency):
         graph[u][v]['weight'] = random.randint(1,max_latency) 
     network_df= pd.DataFrame(nx.to_numpy_array(graph),columns=nodeID,index=nodeID)
     print("Printing network")
-    print(network_df)
+    #print(network_df)
     #nx.draw(graph)
     #nx.draw(nx.from_numpy_array(network_df.values))
     return network_df
