@@ -9,10 +9,16 @@ def show_network(data,labels):
     pass
 
 def csv_loader():
-    data = pd.read_csv("network_model.csv")
+    data = pd.read_csv("config/network_model.csv")
     data.set_index('node',inplace=True)
-    nodeID=None
-    return data,nodeID
+    nodes=data.columns.tolist()
+    nodeID=[int(i) for i in nodes]
+    network_df = pd.DataFrame(data.values,columns=nodeID,index=nodeID)
+    print(network_df)
+    graph = nx.from_numpy_matrix(network_df.values)
+    #nx.draw(graph)
+    #plt.show()
+    return network_df,nodeID
 
 
 def network_creator(nodeID,max_latency):

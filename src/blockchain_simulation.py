@@ -62,8 +62,7 @@ class nodes():
         self.prev_hash=0
         self.prev_block=99900
         #self.res= simpy.Resource(env,capacity=1)
-        self.miner_flag=0
-        self.mine_process = env.process(self.miner())
+        self.sealer_flag=0
         #print("Node generated with node ID: %d " % self.nodeID)
         logger.debug('%d,%d, generated, node, -'%(env.now,self.nodeID))
     
@@ -117,10 +116,12 @@ class nodes():
             #print("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
             logger.debug("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
             # Interrupt the mining process
-            self.mine_process.interrupt()
+            self.receive_block()
         pass
 
     def broadcaster(self,data,nodeID,type,sent_by):
+        print("broadcasting")
+        yield env.timeout(1)
         global MESSAGE_COUNT
         # Broadcast to neighbour node. For now, broadcast to all.
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
@@ -139,60 +140,38 @@ class nodes():
                     self.env.process(propagation(latency,each,data,type))
                 else:
                     pass
-                 
-        pass
-
-    def miner(self):
-        '''
-        Block creation method:
-        1. For each transaction, add the gas of the transaction to the current gas.
-        2. If the current gas is less than block_gas_limit, add more transaction
-        3. Else, hold that transaction and create a new block
-        4. For new block, store its hash as previous hash, add that block to know list and broadcast 
-            it to the other nodes. 
-
-        Interrupt after receiving block from other nodes:
-            If a new block is received, the mining process will be interrupted. After interrupt,
-            check if the previous block hash of the node matches the previous hash of the block.
-        TODO: 
-            What to do if prev hash and block id do not match  
-        '''
     
-        while True:
-            try:
-                yield env.timeout(1)
-                if self.miner_flag==1:
-                    mining_time = random.gauss(config['mining_time_avg'],config['mining_time_sd']) 
-                    start_time = env.now
-                    while  (env.now<= start_time+mining_time):
-                        yield env.timeout(10)
-                        if len(self.txpool) != 0:
-                            for each_tx in self.txpool:
-                                self.current_gas += each_tx.gas
-                                self.current_size+= each_tx.size
-                                #  Checked: done
-                                self.pendingpool.append(self.txpool.pop(0))
-                                
-                            # could this pass for pending pool be pass by reference ? 
-                    global BLOCKID
-                    BLOCKID+=1
-                    self.prev_block +=1
-                    block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
-                    yield env.timeout(config['mining_time_avg'])
-                    self.prev_hash = block.hash
-                    print('%d, %d, Created, block, %d,%d'%(env.now,self.nodeID,block.id,block.size))
-                    logger.debug('%d, %d, Created, block,%d,%d'%(env.now,self.nodeID,block.id,block.size))
-                    print("hash of block is %s"%block.hash)
-                    self.block_list.insert(0,block)
-                    block_stability_logger.info("%s,%d,%d,created,%d"%(env.now,self.nodeID,block.id,block.size))
-                    #print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                    logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
-                    self.known_blocks.append(block.id)
-                    self.broadcaster(block,self.nodeID,1,0)
-                    self.current_gas=0
-                    self.current_size=0
-                    self.pendingpool=[]
-            except simpy.Interrupt:
+        
+    def create_block(self):  
+        yield env.timeout(1)
+        print("starting block formation")  
+        if len(self.txpool) != 0:
+            for each_tx in self.txpool:
+                self.current_gas += each_tx.gas
+                self.current_size+= each_tx.size
+                if self.current_gas<self.block_gas_limit:
+                    self.pendingpool.append(self.txpool.pop(0))
+                else:
+                    break 
+        global BLOCKID
+        BLOCKID+=1
+        self.prev_block +=1
+        block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
+        self.prev_hash = block.hash
+        print('%d, %d, Created, block, %d,%d'%(env.now,self.nodeID,block.id,block.size))
+        logger.debug('%d, %d, Created, block,%d,%d'%(env.now,self.nodeID,block.id,block.size))
+        print("hash of block is %s"%block.hash)
+        self.block_list.insert(0,block)
+        block_stability_logger.info("%s,%d,%d,created,%d"%(env.now,self.nodeID,block.id,block.size))
+        #print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+        logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
+        self.known_blocks.append(block.id)
+        import ipdb; ipdb.set_trace()
+        self.broadcaster(block,self.nodeID,1,0)
+        self.current_gas=0
+        self.current_size=0
+        self.pendingpool=[]
+    def receive_block(self):
                 print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))      
                 # Verify the block:
@@ -249,13 +228,17 @@ def node_generator(env):
     node_map = [nodes(each) for each in nodelist]
 
     if config['consensus']=="POW":
-        n_miner=config['POW']['miner_number']
+        n_sealer=config['POW']['sealer_number']
         # select n nodes randomly
-        miner_nodes=np.random.choice(node_map,n_miner,replace=False)
-        # Change the miner_flag for those nodes 
-        for each in miner_nodes:
-            each.miner_flag=1
-            #print("%d selected as miner"%each.nodeID)
+        sealer_nodes=np.random.choice(node_map,n_sealer,replace=False)
+        # Change the sealer_flag for those nodes 
+        for each in sealer_nodes:
+            each.sealer_flag=1
+            #print("%d selected as sealer"%each.nodeID)
+
+    elif config['consensus']=="POA":
+        pass
+
     
     
   
@@ -279,7 +262,7 @@ def trans_generator(env):
         #node = random.choice(nodelist)
         # choose a node manually
         node=100
-        # select a miner
+        # select a sealer
         
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
@@ -324,7 +307,18 @@ def monitor(env):
                 hash_list.add(block.hash)
               
         unique_block_logger.info("%d,%d"%(env.now,len(hash_list)))
-           
+
+def POA(env):
+    while True:
+        # select a sealer at first
+        sealer=random.choice(node_map)
+        print("Selected %d as a sealer"%sealer.nodeID)
+        # Change the sealer_flag for that nodes 
+        # initiate sealer
+        # yield time out for blocktime
+        yield env.timeout(150)
+        env.process(sealer.create_block())
+
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     with open('config/config.json') as json_data:
@@ -334,19 +328,20 @@ if __name__== "__main__":
     start_time = time.time()
     node_generator(env)
     env.process(trans_generator(env))
-    env.process(monitor(env))
+    #env.process(monitor(env))
+    env.process(POA(env))
     env.run(until=config['sim_time'])
     elapsed_time = time.time() - start_time
     print("----------------------------------------------------------------------------------------------")
     print("Simulation ended")
     logger.info("Simulation ended")
     print("Total Time taken %d:"%elapsed_time)
-    for each in node_map:
-        #logger.info("Blocks in node %d " %each.nodeID)
-        print("Blocks in node %d: " %each.nodeID)
-        for one in each.block_list:
-            print("Created by %d"%one.generated_by)
-            one.view_blocks()
-            #logger.info(one.view_blocks())
-        print("----------------------------------------------")
+    # for each in node_map:
+    #     #logger.info("Blocks in node %d " %each.nodeID)
+    #     print("Blocks in node %d: " %each.nodeID)
+    #     for one in each.block_list:
+    #         print("Created by %d"%one.generated_by)
+    #         one.view_blocks()
+    #         #logger.info(one.view_blocks())
+    #     print("----------------------------------------------")
     
