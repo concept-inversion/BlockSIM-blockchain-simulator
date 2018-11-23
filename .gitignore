@@ -1,7 +1,9 @@
 study/
 .vscode/
-
-
+comparision data/*
+d3 node sim/*
+Gallery.php
+graphs
 src/logs/*
 results/*
 test_notebooks/*
