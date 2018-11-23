@@ -166,11 +166,11 @@ class nodes():
         #print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
         logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
         self.known_blocks.append(block.id)
-        import ipdb; ipdb.set_trace()
-        self.broadcaster(block,self.nodeID,1,0)
+        env.process(self.broadcaster(block,self.nodeID,1,0))
         self.current_gas=0
         self.current_size=0
         self.pendingpool=[]
+
     def receive_block(self):
                 print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))      
@@ -239,9 +239,6 @@ def node_generator(env):
     elif config['consensus']=="POA":
         pass
 
-    
-    
-  
 def trans_generator(env):
     '''
     1. Generates transaction in a random time derived from Mean Transaction generation time and its 
@@ -317,7 +314,7 @@ def POA(env):
         # initiate sealer
         # yield time out for blocktime
         yield env.timeout(150)
-        env.process(sealer.create_block())
+        sealer_process=env.process(sealer.create_block())
 
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
@@ -328,7 +325,7 @@ if __name__== "__main__":
     start_time = time.time()
     node_generator(env)
     env.process(trans_generator(env))
-    #env.process(monitor(env))
+    env.process(monitor(env))
     env.process(POA(env))
     env.run(until=config['sim_time'])
     elapsed_time = time.time() - start_time
