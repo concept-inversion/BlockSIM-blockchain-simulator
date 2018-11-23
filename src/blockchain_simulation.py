@@ -162,23 +162,23 @@ class nodes():
             try:
                 yield env.timeout(1)
                 if self.miner_flag==1:
-                    mining_time = random.gauss(config['mining_time_avg'],config['mining_time_sd']) 
-                    start_time = env.now
-                    while  (env.now<= start_time+mining_time):
-                        yield env.timeout(10)
-                        if len(self.txpool) != 0:
-                            for each_tx in self.txpool:
-                                self.current_gas += each_tx.gas
-                                self.current_size+= each_tx.size
-                                #  Checked: done
+                    yield env.timeout(config["POA"]["mining_time"])     
+                    if len(self.txpool) != 0:
+                        for each_tx in self.txpool:
+                            self.current_gas += each_tx.gas
+                            self.current_size+= each_tx.size
+                            #  Checked: done
+                            if self.current_gas < self.block_gas_limit:   
                                 self.pendingpool.append(self.txpool.pop(0))
-                                
-                            # could this pass for pending pool be pass by reference ? 
+                            else:
+                                break
+                    else:
+                        pass        
+                        # could this pass for pending pool be pass by reference ? 
                     global BLOCKID
                     BLOCKID+=1
                     self.prev_block +=1
                     block = Block(self.current_size,self.prev_block,self.pendingpool,self.nodeID,self.prev_hash)
-                    yield env.timeout(config['mining_time_avg'])
                     self.prev_hash = block.hash
                     print('%d, %d, Created, block, %d,%d'%(env.now,self.nodeID,block.id,block.size))
                     logger.debug('%d, %d, Created, block,%d,%d'%(env.now,self.nodeID,block.id,block.size))
@@ -257,6 +257,12 @@ def node_generator(env):
             each.miner_flag=1
             #print("%d selected as miner"%each.nodeID)
     
+    elif config['consensus']=="POA":
+        n_sealer=config['POA']['sealer_number']
+        global sealer_node
+        sealer_node=random.choice(node_map)
+        sealer_node.miner_flag=1
+        print("Selected sealer is %d"%sealer_node.nodeID)
     
   
 def trans_generator(env):
@@ -294,7 +300,7 @@ def monitor(env):
     prev_block = 99900
     avg_pending_tx= 0
     while True:
-        yield env.timeout(10)
+        yield env.timeout(50)
         #print("Current MEssa ges in the system: %d "%MESSAGE_COUNT)
         message_count_logger.info("%d,%d"%(env.now,MESSAGE_COUNT))
 
@@ -308,12 +314,11 @@ def monitor(env):
         prev_block=BLOCKID
         block_creation_logger.info("%d,%d"%(env.now,avg_block))
         
-        #tx in pending pool 
-        for each in node_map:
-            avg_pending_tx+= len(each.pendingpool)
-        average= avg_pending_tx
+        
+        #tx in pending pool
+        average= len(sealer_node.txpool)
         pending_transaction_logger.info("%d,%d"%(env.now,average))        
-        avg_pending_tx=0
+        print("pending TX %d" %average)
 
         # Eventual Consistency # Verified
         hash_list = set()
@@ -341,12 +346,12 @@ if __name__== "__main__":
     print("Simulation ended")
     logger.info("Simulation ended")
     print("Total Time taken %d:"%elapsed_time)
-    for each in node_map:
-        #logger.info("Blocks in node %d " %each.nodeID)
-        print("Blocks in node %d: " %each.nodeID)
-        for one in each.block_list:
-            print("Created by %d"%one.generated_by)
-            one.view_blocks()
-            #logger.info(one.view_blocks())
-        print("----------------------------------------------")
+    # for each in node_map:
+    #     #logger.info("Blocks in node %d " %each.nodeID)
+    #     print("Blocks in node %d: " %each.nodeID)
+    #     for one in each.block_list:
+    #         print("Created by %d"%one.generated_by)
+    #         one.view_blocks()
+    #         #logger.info(one.view_blocks())
+    #     print("----------------------------------------------")
     
