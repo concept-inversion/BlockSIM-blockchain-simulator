@@ -124,7 +124,8 @@ class nodes():
         global MESSAGE_COUNT
         # Broadcast to neighbour node. For now, broadcast to all.
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
-        def propagation(delay,each,data,type): 
+        def propagation(delay,each,data,type):
+            # take a gussian time delay 
             yield self.env.timeout(delay)
             each.receiver(data,type,nodeID)
         #print("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
