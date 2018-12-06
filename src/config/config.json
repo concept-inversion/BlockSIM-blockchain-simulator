@@ -2,7 +2,7 @@
 	"n_nodes":2,
 	"max_latency":3,
 	"consensus":"POA",
-	"sim_time":24000,
+	"sim_time":50000,
 	"mean_tx_generation":1.471,
 	"sd_tx_generation":0.1,
 	"mean_tx_gas":30000,
