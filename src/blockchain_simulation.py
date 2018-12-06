@@ -126,7 +126,10 @@ class nodes():
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         def propagation(delay,each,data,type):
             # TODO: take a gussian time delay 
-            yield self.env.timeout(delay)
+            stat_random=random.gauss(delay,20)
+            if stat_random <=0:
+                stat_random+=100
+            yield self.env.timeout(stat_random)
             each.receiver(data,type,nodeID)
         #print("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
         logger.debug("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
@@ -161,7 +164,7 @@ class nodes():
     
         while True:
             try:
-                yield env.timeout(1)
+                yield env.timeout(0)
                 if self.miner_flag==1:
                     yield env.timeout(config["POA"]["mining_time"])     
                     if len(self.txpool) != 0:
@@ -193,6 +196,8 @@ class nodes():
                     self.current_gas=0
                     self.current_size=0
                     self.pendingpool=[]
+                else:
+                    yield env.timeout(0.1)
             except simpy.Interrupt:
                 print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))      
