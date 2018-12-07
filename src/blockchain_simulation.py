@@ -126,9 +126,9 @@ class nodes():
         #logger.debug('%d , broadcasting, %d'%(self.nodeID,env.now))
         def propagation(delay,each,data,type):
             # TODO: take a gussian time delay 
-            stat_random=random.gauss(delay,20)
+            stat_random=random.gauss(delay,9)
             if stat_random <=0:
-                stat_random+=100
+                stat_random=delay
             yield self.env.timeout(stat_random)
             each.receiver(data,type,nodeID)
         #print("%d, %d, broadcasting, data, %d"%(env.now,self.nodeID,data.id))
@@ -189,6 +189,7 @@ class nodes():
                     print("hash of block is %s"%block.hash)
                     self.block_list.insert(0,block)
                     block_stability_logger.info("%s,%d,%d,created,%d"%(env.now,self.nodeID,block.id,block.size))
+                    network_stability_calc(env,'c')
                     #print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     self.known_blocks.append(block.id)
@@ -221,7 +222,10 @@ class nodes():
                         self.txpool.extend(self.temp_trans)
                     self.block_list.insert(0,self.intr_data)
                     self.prev_hash = self.intr_data.hash
+                    wait=random.randint(0,90)
+                    yield self.env.timeout(wait)
                     block_stability_logger.info("%s,%d,%d,received"%(env.now,self.nodeID,self.intr_data.id))
+                    network_stability_calc(env,'r')
                     #print("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     logger.info("No of blocks in node %d is %d"%(self.nodeID,len(self.block_list)))
                     self.pendingpool=[]
@@ -296,7 +300,7 @@ def trans_generator(env):
         # Assign the task to the node; Find the node object with the nodeID
         for i in node_map:
             if i.nodeID==node:
-                print("%d, %d, Appended, Transaction, %d"%(env.now,i.nodeID,txID))
+                #print("%d, %d, Appended, Transaction, %d"%(env.now,i.nodeID,txID))
                 logger.debug("%d, %d,Appended, Transaction, %d"%(env.now,i.nodeID,txID))
                 i.add_transaction(transaction)
         yield env.timeout(random.gauss(config['mean_tx_generation'],config['sd_tx_generation']))
@@ -314,17 +318,10 @@ def monitor(env):
         avg_tx= txID-prev_tx
         prev_tx=txID
         #logger.info("%d,%d"%(env.now,avg_tx))
-
-        #Avg Block created
-        avg_block= BLOCKID-prev_block
-        prev_block=BLOCKID
-        block_creation_logger.info("%d,%d"%(env.now,avg_block))
-        
         
         #tx in pending pool
         average= len(sealer_node.txpool)
         pending_transaction_logger.info("%d,%d"%(env.now,average))        
-        print("pending TX %d" %average)
 
         # Eventual Consistency # Verified
         hash_list = set()
@@ -335,7 +332,24 @@ def monitor(env):
                 hash_list.add(block.hash)
               
         unique_block_logger.info("%d,%d"%(env.now,len(hash_list)))
-           
+
+def network_stability_calc(env,msg):
+    
+    total=len(nodelist)-1
+    if msg=='c':
+        global stb_count,start
+        stb_count =0
+        start = env.now
+    elif msg=='r':
+        stb_count+=1
+        if stb_count>=total:
+            time_taken = env.now - start
+            import ipdb;ipdb.set_trace() 
+            block_creation_logger.info("%s"%(time_taken))
+            stb_count=0
+        pass
+    
+
 if __name__== "__main__":
     #env = simpy.rt.RealtimeEnvironment(factor=0.5)
     with open('config/config.json') as json_data:
