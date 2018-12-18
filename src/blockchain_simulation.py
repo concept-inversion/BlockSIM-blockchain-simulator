@@ -105,7 +105,8 @@ class nodes():
             self.known_tx.append(data.id)
             #print("%d received transaction %d at %d"%(self.nodeID,data.id,self.env.now))
             logger.debug("%d,%d,received,transaction,%d "%(self.env.now,self.nodeID,data.id))
-            self.broadcaster(data,self.nodeID,0,sent_by)
+            #TODO: comment the below broadcast for all connected network
+            #self.broadcaster(data,self.nodeID,0,sent_by)
         
         #check if the data is block(1) and if the block is already included in the blockchain
         elif type==1 and (data.id not in self.known_blocks):
@@ -113,7 +114,8 @@ class nodes():
             self.intr_data= data
             # add block to the known list
             self.known_blocks.append(data.id)
-            self.broadcaster(data,self.nodeID,1,sent_by)
+            #TODO: comment the below broadcast for all connected network
+            #self.broadcaster(data,self.nodeID,1,sent_by)
             #print("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
             logger.debug("%d,%d, received, block, %d"%(self.env.now,self.nodeID,data.id))
             # Interrupt the mining process
@@ -200,13 +202,13 @@ class nodes():
                 else:
                     yield env.timeout(0.1)
             except simpy.Interrupt:
-                print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
+                #print("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))
                 logger.debug("%d,%d, interrupted, block, %d " %(env.now,self.nodeID,self.intr_data.id))      
                 # Verify the block:
                 #import ipdb; ipdb.set_trace()
                 # check block number
                 if self.prev_hash == self.intr_data.prev_hash:
-                    print("Previous hash match")
+                    #print("Previous hash match")
                     # check the list of transactions
                     block_set= set(self.intr_data.transactions)
                     node_set = set(self.pendingpool)
@@ -222,7 +224,7 @@ class nodes():
                         self.txpool.extend(self.temp_trans)
                     self.block_list.insert(0,self.intr_data)
                     self.prev_hash = self.intr_data.hash
-                    wait=random.randint(0,90)
+                    wait=random.randint(0,45)
                     yield self.env.timeout(wait)
                     block_stability_logger.info("%s,%d,%d,received"%(env.now,self.nodeID,self.intr_data.id))
                     network_stability_calc(env,'r')
@@ -232,9 +234,9 @@ class nodes():
                     self.intr_data=None
                     self.current_gas=0
                 else:
-                    print("%s,%d,%d,outofsync"%(env.now,self.nodeID,self.intr_data.id))
-                    print(self.prev_hash)
-                    print(self.intr_data.prev_hash)
+                    #print("%s,%d,%d,outofsync"%(env.now,self.nodeID,self.intr_data.id))
+                    #print(self.prev_hash)
+                    #print(self.intr_data.prev_hash)
                     self.prev_hash = self.intr_data.hash
                     block_stability_logger.info("%s,%d,%d,outofsync"%(env.now,self.nodeID,self.intr_data.id))
                     # Simulate node restart by adding the incoming node
@@ -343,8 +345,7 @@ def network_stability_calc(env,msg):
     elif msg=='r':
         stb_count+=1
         if stb_count>=total:
-            time_taken = env.now - start
-            import ipdb;ipdb.set_trace() 
+            time_taken = (env.now - start)*10 
             block_creation_logger.info("%s"%(time_taken))
             stb_count=0
         pass

@@ -1,9 +1,9 @@
 {
-	"n_nodes":2,
+	"n_nodes":20,
 	"max_latency":3,
 	"consensus":"POA",
-	"sim_time":50000,
-	"mean_tx_generation":1.471,
+	"sim_time":500000,
+	"mean_tx_generation":10,
 	"sd_tx_generation":0.1,
 	"mean_tx_gas":30000,
 	"sd_tx_gas":1000,
@@ -16,7 +16,7 @@
 		"miner_number":1
 	},
 	"POA":{
-		"mining_time":500,
+		"mining_time":1000,
 		"sealer_number":1
 	}
 }
